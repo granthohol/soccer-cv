@@ -1,28 +1,24 @@
 #!/usr/bin/env python3
+
+from ultralytics import YOLO
 import gc
 import torch
-from ultralytics import YOLO
 
-def clear_gpu():
-    """Free up as much GPU RAM as possible before training."""
-    gc.collect()                      
-    torch.cuda.empty_cache()          
+gc.collect()                      
+torch.cuda.empty_cache() 
+detection_model = YOLO("yolov8s.pt")        
 
-def train():
-    clear_gpu()
 
-    # 1) Load a pre-trained YOLOv8x model
-    model = YOLO("yolov8x.pt")        
-
-    # 2) Kick off training with your exact specs
-    model.train(
-        data="data/data.yaml",   # your data config
-        epochs=50,
-        batch=6,
-        imgsz=1280,
-        half=True,               # enable FP16
-        device=0                 # choose GPU 0
-    )
-
-if __name__ == "__main__":
-    train()
+detection_model.train(
+    data="football-players-detection-12/data.yaml",
+    epochs=100,             
+    batch=3,                
+    imgsz=1280,            
+    half=True,            
+    augment=True,          
+    lr0=0.001,              
+    weight_decay=0.0005,    
+    patience=20,            
+    optimizer="Adam",       
+    device=0                
+)
