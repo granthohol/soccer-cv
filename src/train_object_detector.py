@@ -9,7 +9,7 @@ detection_model = YOLO("yolov8s.pt")
 
 
 detection_model.train(
-    data="football-players-detection-12/data.yaml",
+    data="../data/football-players-detection-12/data.yaml",
     epochs=100,             
     batch=3,                
     imgsz=1280,            
