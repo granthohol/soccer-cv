@@ -7,6 +7,12 @@ def download_object_detection():
     version = project.version(12)
     dataset = version.download("yolov8")
 
+def download_ball_detection():
+    rf = Roboflow(api_key="viJOUNkPSJPv2zjTyGMg")
+    project = rf.workspace("roboflow-jvuqo").project("football-ball-detection-rejhg")
+    version = project.version(2)
+    dataset = version.download("yolov8")
+
 def download_pitch_detection():
     rf = Roboflow(api_key="viJOUNkPSJPv2zjTyGMg")
     project = rf.workspace("roboflow-jvuqo").project("football-field-detection-f07vi")
@@ -15,4 +21,5 @@ def download_pitch_detection():
 
 if __name__ == "__main__":
     download_object_detection()
+    download_ball_detection()
     download_pitch_detection()
