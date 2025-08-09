@@ -123,4 +123,5 @@ ehthumbs.db
 
 /runs/
 *.pt
+weights/
 *.mp4
