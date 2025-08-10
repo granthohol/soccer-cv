@@ -101,4 +101,10 @@ def write_voronoi_2d_video(
             canvas = draw_points_on_pitch(CONFIG, pitch_ref,
                                           face_color=sv.Color.BLACK, edge_color=sv.Color.WHITE,
                                           radius=16, pitch=canvas)
+            
+            canvas = draw_points_on_pitch(CONFIG, pitch_play[players.class_id == 0],
+                                          face_color=sv.Color.BLUE, radius=16, pitch=canvas)
+            canvas = draw_points_on_pitch(CONFIG, pitch_play[players.class_id == 1],
+                                          face_color=sv.Color.RED, radius=16, pitch=canvas)
+            
             sink.write_frame(canvas)
