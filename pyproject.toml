@@ -17,6 +17,7 @@ huggingface_hub = ">=0.34.4,<0.35.0"
 # git dependency (branch/tag/commit as you like)
 sports = { git = "https://github.com/roboflow/sports.git", branch = "main" }
 roboflow = "^1.2.3"
+torch = "^2.8.0"
 
 [build-system]
 requires = ["poetry-core>=1.8.0"]
