@@ -6,10 +6,15 @@ authors = ["Grant Hohol <ghohol@wisc.edu>"]
 readme = "README.md"
 packages = [{ include = "soccer_cv", from = "src" }]
 
+[[tool.poetry.source]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+priority = "supplemental"
+
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
 numpy = ">=2,<2.3.0"                # match OpenCV’s constraint
-opencv-python = ">=4.12.0.88,<5.0.0"
+opencv-python-headless = ">=4.10.0.84,<5.0.0"
 tqdm = ">=4.67.1,<5.0.0"
 ultralytics = ">=8.3.176,<9.0.0"
 supervision = ">=0.26.1,<0.27.0"
@@ -17,7 +22,7 @@ huggingface_hub = ">=0.34.4,<0.35.0"
 # git dependency (branch/tag/commit as you like)
 sports = { git = "https://github.com/roboflow/sports.git", branch = "main" }
 roboflow = "^1.2.3"
-torch = "^2.8.0"
+torch = { version = "2.4.1", source = "pytorch-cpu" }  # cpu default
 
 [build-system]
 requires = ["poetry-core>=1.8.0"]

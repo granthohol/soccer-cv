@@ -35,6 +35,16 @@ def write_ball_path_2d_video(
     source_video: str,
     target_video: str,
 ) -> None:
+    
+    try:
+        from ultralytics import YOLO  # pulls in torch
+    except Exception as e:
+        raise RuntimeError(
+            "Ultralytics / PyTorch not installed properly.\n"
+            "CPU install: pip install torch==2.4.1 -f https://download.pytorch.org/whl/cpu/torch_stable.html\n"
+            "GPU install (CUDA 12.1):  pip install --index-url https://download.pytorch.org/whl/cu121 torch==2.4.1 torchvision==0.19.1"
+        ) from e
+
     device = pick_device()
     OBJECT_DETECTION_MODEL = load_default_player_model()
     PITCH_DETECTION_MODEL  = load_default_pitch_model()
