@@ -3,7 +3,9 @@
 ### GPU (recommend if available)
 
 1. Preinstall the matching CUDA wheels
-`pip install --index-url https://download.pytorch.org/whl/cu121 torch==2.4.1 torchvision==0.19.1`
+``` bash
+pip install --index-url https://download.pytorch.org/whl/cu121 torch==2.4.1 torchvision==0.19.1
+```
 
 2. Install the soccer_cv library from GitHub
 `pip install "git+https://github.com/granthohol/soccer-cv.git@main" `
@@ -14,7 +16,7 @@
 `pip install --index-url https://download.pytorch.org/whl/cpu torch==2.4.1 torchvision==0.19.1`
 
 2. Install the soccer_cv library from GitHub
-`pip install "git+https://github.com/granthohol/soccer-cv.git@main `
+`pip install "git+https://github.com/granthohol/soccer-cv.git@main" `
 
 
 
