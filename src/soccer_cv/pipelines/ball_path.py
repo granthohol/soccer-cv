@@ -9,7 +9,7 @@ from sports.annotators.soccer import draw_pitch, draw_paths_on_pitch, draw_point
 
 from ..config import DEFAULT_CONFIG as CONFIG
 from ..devices import pick_device
-from ..models import load_default_player_model, load_default_pitch_model
+from ..models import load_default_object_model, load_default_pitch_model
 from ..geometry import ViewTransformer
 
 BALL_ID = 0
@@ -46,7 +46,7 @@ def write_ball_path_2d_video(
         ) from e
 
     device = pick_device()
-    OBJECT_DETECTION_MODEL = load_default_player_model()
+    OBJECT_DETECTION_MODEL = load_default_object_model()
     PITCH_DETECTION_MODEL  = load_default_pitch_model()
 
     video_info = sv.VideoInfo.from_video_path(source_video)

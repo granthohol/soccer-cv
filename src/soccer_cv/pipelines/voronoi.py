@@ -8,7 +8,7 @@ from sports.annotators.soccer import draw_pitch, draw_points_on_pitch, draw_pitc
 
 from ..config import DEFAULT_CONFIG as CONFIG
 from ..devices import pick_device
-from ..models import load_default_player_model, load_default_pitch_model
+from ..models import load_default_object_model, load_default_pitch_model
 from ..geometry import ViewTransformer
 from ..utils import extract_crops, resolve_goalkeepers_team_id
 
@@ -29,7 +29,7 @@ def write_voronoi_2d_video(
         ) from e
     
     device = pick_device()
-    OBJECT_DETECTION_MODEL = load_default_player_model()
+    OBJECT_DETECTION_MODEL = load_default_object_model()
     PITCH_DETECTION_MODEL  = load_default_pitch_model()
 
     src_info = sv.VideoInfo.from_video_path(source_video)
