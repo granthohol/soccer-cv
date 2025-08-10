@@ -1,6 +1,6 @@
 from tqdm import tqdm
 import numpy as np
-from models import load_default_object_model
+from .models import load_default_object_model
 import supervision as sv
 
 
