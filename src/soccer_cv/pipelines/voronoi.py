@@ -83,7 +83,7 @@ def write_voronoi_2d_video(source_video: str, target_video: str) -> None:
 
             # Always detect & classify per frame so points stay fresh
             ball, players, refs = detect_ball_and_players(frame, rt, conf_obj=OBJ_CONF)
-            team_ids = classify_players(frame, players, rt.team_classifier)
+            team_ids = classify_players(frame, players, rt.team_classifier, rt.team_id_map, frame_idx=i)
 
             # Update homography periodically (independent of Voronoi cadence)
             if (rt.vt is None) or (i % KEYPOINT_EVERY == 0):
@@ -142,9 +142,15 @@ def write_voronoi_2d_video(source_video: str, target_video: str) -> None:
             # Compose: base pitch + blended Voronoi polygons (masked), then draw points fresh
             canvas = rt.template.copy()
             if active_mask.any():
-                canvas[active_mask] = voronoi_composited[active_mask]
+                # alpha-blend voronoi onto the pitch only at polygon pixels
+                a = float(0.5)
+                # do math in float, write back to uint8
+                bg = canvas[active_mask].astype(np.float32)
+                fg = voronoi_composited[active_mask].astype(np.float32)
+                blended = (1.0 - a) * bg + a * fg
+                canvas[active_mask] = blended.astype(np.uint8)
 
-            # Draw players / ball / refs for THIS frame (no blending)
+            # Draw players / ball / refs for THIS frame
             if pitch_play.size:
                 canvas = draw_points_on_pitch(
                     CONFIG, pitch_play[team_ids == 0],

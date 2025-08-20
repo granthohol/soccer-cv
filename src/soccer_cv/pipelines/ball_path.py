@@ -41,7 +41,7 @@ def write_ball_path_2d_video(
         for i, frame in enumerate(tqdm(frames, total=rt.src_info.total_frames)):
             
             # detect ball only
-            ball, players, _ = detect_ball_and_players(frame, rt, conf_obj=0.3)
+            ball, _, _ = detect_ball_and_players(frame, rt)
             
             # H update
             if (rt.vt is None) or ( i% 5 == 0):
@@ -63,9 +63,5 @@ def write_ball_path_2d_video(
             canvas = rt.template.copy()
             if trail.shape[0] >= 2:
                 canvas = draw_paths_on_pitch(CONFIG, [trail], color=sv.Color.WHITE, pitch=canvas)
-                
-            if new_pt.size == 2:
-                canvas = draw_points_on_pitch(CONFIG, new_pt.reshape(1, 2),
-                                              face_color=sv.Color.WHITE, edge_color=sv.Color.BLACK,
-                                              radius=10, pitch=canvas)
+
             sink.write_frame(canvas)

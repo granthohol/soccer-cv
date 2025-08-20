@@ -1,10 +1,12 @@
 # src/soccer_cv/pipelines/_common.py
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Dict
+from collections import deque
 
 import numpy as np
 import supervision as sv
+import cv2
 
 # Import *light* stuff at module level; heavy deps inside functions
 from ..devices import pick_device
@@ -24,13 +26,16 @@ class Runtime:
     object_model: object
     pitch_model: object
     template: np.ndarray        # pitch canvas (HxWx3)
-    src_info: sv.VideoInfo      # original video info
+    src_info: sv.VideoInfo      # original video info (input)
     pitch_info: sv.VideoInfo    # output video info (pitch-size)
-    tracker: sv.ByteTrack
+    tracker: sv.ByteTrack       # multi object tracker that assigns stable tracker_id's to players/refs across frames
     team_classifier: Optional[object] = None
-    H_buf: list[np.ndarray] = field(default_factory=list)   # rolling buffer of H matrices
-    vt: Optional[ViewTransformer] = None                    # last good transformer
-
+    team_id_map: dict[int, int] = field(default_factory=dict)   # track_id -> team_id
+    
+    # Homography smoothing
+    H_buf: list[np.ndarray] = field(default_factory=list)   # rolling buffer of homography matrices; used to average/smooth the matrices
+    vt: Optional[ViewTransformer] = None                    
+    
 def init_runtime(
         source_video: str,
         want_team_classifier: bool = False,
@@ -38,9 +43,10 @@ def init_runtime(
     """
     1. Picks device (cpu/cuda/mps)
     2. Loads object and pitch models
-    3. Builds a pitch canvas and pitch sized VideoInfo
-    4. Prepares a ByteTrack tracker
-    5. (Optional) Fits a TeamClassifier from early crops
+    3. Fuse models if supported
+    4. Builds a pitch canvas and pitch sized VideoInfo
+    5. Prepares a ByteTrack tracker
+    6. (Optional) Fits a TeamClassifier from early crops
     """
     from sports.annotators.soccer import draw_pitch
 
@@ -58,9 +64,17 @@ def init_runtime(
 
     obj_model: YOLO = load_default_object_model()
     pitch_model: YOLO = load_default_pitch_model()
+    
+    # fuse for slight inference time speedup
+    for m in (obj_model, pitch_model):
+        try:
+            m.fuse()
+        except Exception:
+            pass
 
-    src_info = sv.VideoInfo.from_video_path(source_video)
-    template = draw_pitch(CONFIG)
+    src_info = sv.VideoInfo.from_video_path(source_video)   # read fps, resolution, count from input path
+    # create blank pitch canvas; standardize output video size
+    template = draw_pitch(CONFIG)   
     h, w = template.shape[:2]
     pitch_info = sv.VideoInfo(fps=src_info.fps, width=w, height=h, total_frames=src_info.total_frames) 
 
@@ -105,30 +119,69 @@ def detect_ball_and_players(
     if ball.xyxy.size:
         ball.xyxy = sv.pad_boxes(ball.xyxy, px=10)  # pad the bounding box for ball detections
 
-    # ?
+    
     others = dets[dets.class_id != BALL_ID].with_nms(threshold=0.5, class_agnostic=True)
-    tracked = rt.tracker.update_with_detections(others)
+    tracked = rt.tracker.update_with_detections(others)     # feed the others detections through the tracker to update tracker_ids
 
     players = tracked[tracked.class_id == PLAYER_ID]
     refs    = tracked[tracked.class_id == REF_ID]
-    return ball, players, refs    
+    return ball, players, refs  
+    
 
 def classify_players(
         frame: np.ndarray,
         players: sv.Detections,
         team_clf: Optional[object],
+        team_map: dict[int, int],   # rf.team_id_map
+        *,
+        frame_idx: int,
+        refresh_stride: int = 60,   # re run full refresh every N frames
 ) -> np.ndarray:
     """
-    Assigns team IDs (0/1) to each player detection, in place on players.class_id.
-    Returns the 1D np.ndarray of team IDs.
+    Simple 'track_id -> team_id' mapping:
+      - On frame 0 or every `refresh_stride` frames: classify ALL visible tracks and refresh the map.
+      - On other frames: only classify tracks missing from the map (newly appeared).
+      - Assigns players.class_id from the map. Unseen -> -1.
+
+    Returns: players.class_id (np.ndarray[int]).
     """
-    if team_clf is None or not players.xyxy.size:
+    n = len(players)
+    if n == 0:
         players.class_id = np.empty((0,), dtype=int)
         return players.class_id
     
-    crops = [sv.crop_image(frame, xyxy) for xyxy in players.xyxy]
-    players.class_id = team_clf.predict(crops).astype(int)
+    task_ids = getattr(players, "tracker_id", None)
+    boxes = players.xyxy
+    
+    do_full_refresh = (frame_idx == 0) or (refresh_stride > 0 and (frame_idx % refresh_stride == 0))
+    
+    if do_full_refresh:
+        # classify ALL visible tracks
+        crops = [sv.crop_image(frame, box) for box in boxes]
+        preds = team_clf.predict(crops).astype(int)
+        for task_id, p in zip(task_ids, preds):
+            if task_id is not None:
+                team_map[int(task_id)] = int(p)    
+    else:
+        # classify ONLY tracks missing from the map (new arrivals)
+        need_idx = [i for i, tid in enumerate(task_ids) if (tid is None) or (int(tid) not in team_map)]
+        if need_idx:
+            crops = [sv.crop_image(frame, boxes[i]) for i in need_idx]
+            preds = team_clf.predict(crops).astype(int)
+            for j, i in enumerate(need_idx):
+                tid = task_ids[i]
+                if tid is not None:
+                    team_map[int(tid)] = int(preds[j])
+    
+    # Assign from map (unknown = -1)
+    assigned = np.array(
+        [team_map.get(int(tid), -1) if tid is not None else -1 for tid in task_ids],
+        dtype=int
+    )
+    players.class_id = assigned
     return players.class_id
+    
+    
 
 def update_homography(
     frame: np.ndarray,
