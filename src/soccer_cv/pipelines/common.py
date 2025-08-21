@@ -129,15 +129,17 @@ def detect_ball_and_players(
     
 
 def classify_players(
-        frame: np.ndarray,
-        players: sv.Detections,
-        team_clf: Optional[object],
-        team_map: dict[int, int],   # rf.team_id_map
+        frame: np.ndarray,          # the current RGB/BGR frame (H,W,3), dtype=uint8
+        players: sv.Detections,     # Supervision Detections for *players* in this frame
+        team_clf: Optional[object], # a trained TeamClassifier 
+        team_id_map: dict[int, int],   # rf.team_id_map
         *,
-        frame_idx: int,
-        refresh_stride: int = 60,   # re run full refresh every N frames
+        frame_idx: int,             # current frame number
+        refresh_stride: int = 60,   # fully refresh map every refresh_stride frames; default 60 is every second in 60fps
 ) -> np.ndarray:
     """
+    Used to classify player detections by team
+    
     Simple 'track_id -> team_id' mapping:
       - On frame 0 or every `refresh_stride` frames: classify ALL visible tracks and refresh the map.
       - On other frames: only classify tracks missing from the map (newly appeared).
@@ -145,37 +147,41 @@ def classify_players(
 
     Returns: players.class_id (np.ndarray[int]).
     """
+    
+    # if no player detections, return empty label array
     n = len(players)
     if n == 0:
         players.class_id = np.empty((0,), dtype=int)
         return players.class_id
     
-    task_ids = getattr(players, "tracker_id", None)
+    tracker_ids = getattr(players, "tracker_id", None)
     boxes = players.xyxy
     
+    # decide if full refresh frame
     do_full_refresh = (frame_idx == 0) or (refresh_stride > 0 and (frame_idx % refresh_stride == 0))
     
     if do_full_refresh:
         # classify ALL visible tracks
         crops = [sv.crop_image(frame, box) for box in boxes]
         preds = team_clf.predict(crops).astype(int)
-        for task_id, p in zip(task_ids, preds):
-            if task_id is not None:
-                team_map[int(task_id)] = int(p)    
+        for tracker_id, pred in zip(tracker_ids, preds):
+            if tracker_id is not None:
+                team_id_map[int(tracker_id)] = int(pred)    
     else:
         # classify ONLY tracks missing from the map (new arrivals)
-        need_idx = [i for i, tid in enumerate(task_ids) if (tid is None) or (int(tid) not in team_map)]
+        # get player indexes that need a refresh
+        need_idx = [i for i, tracker_id in enumerate(tracker_ids) if (tracker_id is None) or (int(tracker_id) not in team_id_map)]
         if need_idx:
             crops = [sv.crop_image(frame, boxes[i]) for i in need_idx]
             preds = team_clf.predict(crops).astype(int)
             for j, i in enumerate(need_idx):
-                tid = task_ids[i]
-                if tid is not None:
-                    team_map[int(tid)] = int(preds[j])
+                tracker_id = tracker_ids[i]
+                if tracker_id is not None:
+                    team_id_map[int(tracker_id)] = int(preds[j])
     
-    # Assign from map (unknown = -1)
-    assigned = np.array(
-        [team_map.get(int(tid), -1) if tid is not None else -1 for tid in task_ids],
+    # Assign team_ids to detections
+    assigned = np.array(    # get ream_ids
+        [team_id_map.get(int(tracker_id), -1) if tracker_id is not None else -1 for tracker_id in tracker_ids],
         dtype=int
     )
     players.class_id = assigned
@@ -185,40 +191,49 @@ def classify_players(
 
 def update_homography(
     frame: np.ndarray,
-    rt: Runtime,
-    keypoint_conf: float = 0.3,
-    min_points: int = 4,
-    smooth_len: int = 5,
+    rt: Runtime,    
+    keypoint_conf: float = 0.4,     # conf thresh for pitch landmarks
+    min_points: int = 6,            # homography needs >=4 correspondences
+    smooth_len: int = 7,            # number of recent homographies to average for stability
 ) -> bool:
     """
-    Estimates a new homography (frame -> pitch) if enough keypoints exist,
+    Estimates a new homography matrix transformation (frame -> pitch) if enough keypoints exist,
     smooths it with a rolling average of the last `smooth_len` matrices,
     and stores it in rt.vt. Returns True if updated.
+    
+    This function:
+    1. Detects pitch keypoints in the current frame
+    2. Uses the detected points to compute a homography to the canonical pitch points
+    3. Smooths the homography over the last few frames to reduce jitter
+    4. Stores the smoothed transformer (rt.vt) for downstream projection calls
     """
+    # run pitch keypoint model on this frame
     kp_res = rt.pitch_model.predict(frame, conf=keypoint_conf, verbose=False, device=rt.device)[0]
     kp = sv.KeyPoints.from_ultralytics(kp_res)
+    
+    # ensure feasibility
     if kp.xy.shape[0] == 0:
         return False
-
     m = kp.confidence[0] > 0.5
     if np.sum(m) < min_points:
         return False
 
-    frame_ref = kp.xy[0][m]
-    pitch_ref = np.array(CONFIG.vertices)[m]
+
+    frame_ref = kp.xy[0][m]                     # observed landmark (x,y) positionsin the current camera frame
+    pitch_ref = np.array(CONFIG.vertices)[m]    # canonical (x, y) positions of the corresponding landmarks in 2D pitch layout
 
     vt_new = ViewTransformer(source=frame_ref, target=pitch_ref)
-    if getattr(vt_new, "m", None) is None:
+    if getattr(vt_new, "matrix", None) is None:
         return False
 
     # Smooth the homography
-    rt.H_buf.append(vt_new.m)
+    rt.H_buf.append(vt_new.matrix)          # add new homography matrix
     if len(rt.H_buf) > smooth_len:
-        rt.H_buf = rt.H_buf[-smooth_len:]
-    H = np.mean(np.stack(rt.H_buf, axis=0), axis=0)
+        rt.H_buf = rt.H_buf[-smooth_len:]   # keep only the last `smooth_len` matrices
+    H = np.mean(np.stack(rt.H_buf, axis=0), axis=0) # get the mean of the matrices
     if H[2, 2] != 0:
-        H = H / H[2, 2]
-    vt_new.m = H
+        H = H / H[2, 2]     # normalize
+    vt_new.matrix = H
     rt.vt = vt_new
     return True
 
