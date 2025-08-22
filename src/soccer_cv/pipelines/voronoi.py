@@ -19,18 +19,18 @@ from .common import (
 )
 
 # Tunables
-VORONOI_EVERY   = 5     # compute Voronoi polygons every K frames
-KEYPOINT_EVERY  = 5     # refresh homography every K' frames
-MIN_KP          = 4
-OBJ_CONF        = 0.15
-SMOOTH_H        = 5
+VORONOI_EVERY   = 5     # compute Voronoi polygons every VORNOI_EVERY frames, blend in between; saves compute and reduces jitter
+KEYPOINT_EVERY  = 5     # refresh homography every KEYPOINT_EVERY frames
+MIN_KP          = 4     # need at least 4 consistent pitch keypoints for a valid homography
+OBJ_CONF        = 0.15  # detector confidence threshold for object detector
+SMOOTH_H        = 5     # homography smoothing window
 TEAM1_HEX       = '00BFFF'
 TEAM2_HEX       = 'FF1493'
 
 
 def _make_voronoi_layer(
-    template: np.ndarray,
-    team1_xy: np.ndarray,
+    template: np.ndarray,   # pitch canvas that establishes output size
+    team1_xy: np.ndarray,   
     team2_xy: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
@@ -40,9 +40,9 @@ def _make_voronoi_layer(
     We draw on a black canvas so we can later composite just the polygons.
     """
     h, w = template.shape[:2]
-    layer = np.zeros_like(template, dtype=np.uint8)  # black background
+    layer = np.zeros_like(template, dtype=np.uint8)  # black background; array of zeros
 
-    layer = draw_pitch_voronoi_diagram(
+    layer = draw_pitch_voronoi_diagram(     # paint the Voronoi partition induced by team positions onto the black layer
         config=CONFIG,
         team_1_xy=team1_xy,
         team_2_xy=team2_xy,
@@ -50,7 +50,7 @@ def _make_voronoi_layer(
         team_2_color=sv.Color.from_hex(TEAM2_HEX),
         pitch=layer
     )
-    mask = np.any(layer != 0, axis=2)  # painted pixels
+    mask = np.any(layer != 0, axis=2)  # painted pixels by voronoi
     return layer, mask
 
 
@@ -61,10 +61,38 @@ def _blend_layers(prev_layer: np.ndarray, curr_layer: np.ndarray, alpha: float) 
 
 def write_voronoi_2d_video(source_video: str, target_video: str) -> None:
     """
-    Fast Voronoi: blend only the Voronoi polygons between keyframes.
-    Player/ball points are drawn freshly each frame (no blending).
+    Render a time varying 2D Voronoi team field control map over a canonical soccer pitch and save as video.
+
+    This pipeline ingests a broadcast video, detects and tracks on-field players, classifies them
+    into two teams, estimates a frame→pitch homography from pitch keypoints, projects player
+    positions into pitch coordinates, and draws a Voronoi partition (team 0 vs team 1) on a
+    pitch-sized canvas. To reduce jitter and computation, the Voronoi polygons are recomputed only
+    on periodic keyframes and cross-faded between keyframes; player/ball/ref markers are redrawn
+    crisply every frame.
+    
+    Parameters
+    ----------
+    source_video : str
+        Path to the input broadcast video (readable by OpenCV/Supervision).
+    target_video : str
+        Path to the output video (MP4 or compatible). The output resolution matches the library's
+        pitch template (from the default config).
+        
+    Notes
+    -----
+    - Models, device selection (CPU/CUDA/MPS), pitch template, and video I/O are initialized via
+      ``init_runtime``. Import/runtime errors from PyTorch/Ultralytics will propagate.
+      
+    Returns
+    -------
+    None
+        Writes ``target_video`` to disk; raises on I/O/model errors.
+
+    Examples
+    --------
+    >>> from soccer_cv import write_voronoi_2d_video
+    >>> write_voronoi_2d_video("content/clip.mp4", "output/voronoi_clip.mp4")
     """
-    max_frames = int(os.getenv("SOCCER_CV_MAX_FRAMES", "0")) or None
 
     rt = init_runtime(source_video, want_team_classifier=True)
     frames = sv.get_video_frames_generator(source_video)
@@ -73,13 +101,11 @@ def write_voronoi_2d_video(source_video: str, target_video: str) -> None:
     prev_mask  = None         # np.ndarray (HxW) bool
     curr_layer = None
     curr_mask  = None
-    blend_t = 0
-    blend_steps = max(1, VORONOI_EVERY)
+    blend_t = 0               # counter between frames
+    blend_steps = max(1, VORONOI_EVERY) # how many frames the cross fade spans
 
     with sv.VideoSink(target_video, video_info=rt.pitch_info) as sink:
         for i, frame in enumerate(tqdm(frames, total=rt.src_info.total_frames)):
-            if max_frames is not None and i >= max_frames:
-                break
 
             # Always detect & classify per frame so points stay fresh
             ball, players, refs = detect_ball_and_players(frame, rt, conf_obj=OBJ_CONF)
@@ -99,9 +125,11 @@ def write_voronoi_2d_video(source_video: str, target_video: str) -> None:
                 pitch_play = np.empty((0, 2), np.float32)
                 pitch_refs = np.empty((0, 2), np.float32)
 
-            is_keyframe = (i % VORONOI_EVERY == 0)
+            # compute a new Voronoi layer
+            is_keyframe = (i % VORONOI_EVERY == 0)  # check if need to recompute polygons (keyframe)
             if is_keyframe:
                 # Build a NEW Voronoi layer on keyframes only
+                
                 if rt.vt is None or pitch_play.size == 0:
                     new_layer = np.zeros_like(rt.template)
                     new_mask  = np.zeros(rt.template.shape[:2], dtype=bool)
@@ -119,7 +147,7 @@ def write_voronoi_2d_video(source_video: str, target_video: str) -> None:
                     blend_t = blend_steps  # skip blending on first output
                     voronoi_composited = curr_layer
                     active_mask = curr_mask
-                else:
+                else:   # every keyframe besides start
                     # Start a new transition: prev <- curr, curr <- new
                     prev_layer, prev_mask = curr_layer, curr_mask
                     curr_layer, curr_mask = new_layer, new_mask
