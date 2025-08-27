@@ -1,7 +1,7 @@
 # src/soccer_cv/pipelines/heatmaps.py
 from __future__ import annotations
 import os
-from typing import Deque, Optional, List, Dict
+from typing import Deque, Optional, List, Dict, Tuple
 from collections import deque
 
 import cv2
@@ -271,15 +271,87 @@ def write_team_player_heatmap_grids(
     blur_sigma: float = 5.0,
 ) -> Tuple[str, str]:
     """
-    Process the video once and write two PNGs:
-      - team0_heatmaps_grid.png : grid of per-player heatmaps for team 0 (top 10 only)
-      - team1_heatmaps_grid.png : grid of per-player heatmaps for team 1 (top 10 only)
+    Generate **per-player cumulative heatmaps** for each team and save them as two tiled PNG images.
 
-    Each panel is the final cumulative heatmap for one tracker_id on that team, rendered on
-    the canonical 2D pitch and labeled with `#track_id`.
+    This function processes a broadcast soccer video once, tracks players, projects their
+    locations into a canonical 2D pitch via homography, and accumulates each player's
+    on-pitch presence into a heat grid. For each team, its players heatmaps are rendered as
+    a grid of panels (each panel = one player, labeled with their `#track_id`) over the pitch.
+    The two output files are:
 
-    `normalize="presence"` divides each player's grid by that player's visible frames;
-    `normalize="clip"` divides by total frames processed.
+    - `team0_heatmaps_grid.png` — Team 0’s players
+    - `team1_heatmaps_grid.png` — Team 1’s players
+
+    The heatmaps are **cumulative over the entire clip** (not rolling).
+
+    Parameters
+    ----------
+    source_video : str
+        Path to the input broadcast video.
+    output_dir : str
+        Directory where the two PNG files will be written. The directory is created if needed.
+    grid_cols : int, optional
+        Number of columns in the tiled grid for each team image. Rows are computed automatically
+        based on the number of selected players (up to 10). Default is 4.
+    normalize : {"presence", "clip"}, optional
+        How to normalize heat intensity before rendering:
+        - `"presence"`: divide each player's grid by **that player's** number of visible frames
+          (fair for substitutes; emphasizes their personal usage).
+        - `"clip"`: divide by **total output frames** processed (comparable across players; penalizes
+          players who were on the pitch less time).
+        Default is `"presence"`.
+    cmap_name : str, optional
+        OpenCV colormap name used to colorize the heat (e.g., `"JET"`, `"HOT"`, `"TURBO"`).
+        Default is `"JET"`.
+    alpha_max : float, optional
+        Maximum alpha used when blending the heatmap over the pitch (0–1). Default is 0.7.
+    blur_sigma : float, optional
+        Gaussian sigma (in grid pixels) applied to the accumulated heat grid prior to rendering.
+        Smooths noisy localization. Default is 5.0.
+
+    Returns
+    -------
+    (str, str)
+        Tuple of file paths `(team0_png, team1_png)` pointing to the written PNGs.
+
+    Notes
+    -----
+    - The routine uses the library’s runtime bootstrap to load object and pitch keypoint models,
+      run detection + tracking (ByteTrack), classify players into two teams, estimate per-frame
+      homography, and project detections to canonical pitch coordinates.
+    - Player selection per team is capped at **top 10** by “data volume” (sum of grid counts),
+      with a minimum presence threshold to filter out brief blips and ID noise.
+    - If homography cannot be estimated reliably for long stretches (e.g., too few pitch keypoints),
+      little or no heat will accumulate; verify your pitch keypoint model and thresholds.
+    - ID switches in tracking can split a real player’s heat across multiple `track_id`s; the function
+      renders each `track_id` independently.
+    - Color scaling uses percentile-based exposure for a final, readable snapshot, so low-count regions
+      remain visible.
+
+    Example
+    -------
+    >>> from soccer_cv.pipelines.heatmaps import write_team_player_heatmap_grids
+    >>> out0, out1 = write_team_player_heatmap_grids(
+    ...     "content/121364_0.mp4",
+    ...     "outputs/heatmaps",
+    ...     grid_cols=4,
+    ...     normalize="presence",
+    ...     cmap_name="JET",
+    ...     alpha_max=0.7,
+    ...     blur_sigma=5.0,
+    ... )
+    >>> print(out0, out1)
+    outputs/heatmaps/team0_heatmaps_grid.png outputs/heatmaps/team1_heatmaps_grid.png
+
+    Raises
+    ------
+    RuntimeError
+        If required runtime dependencies (e.g., PyTorch/Ultralytics) are not installed or models
+        cannot be loaded; errors are propagated from the runtime initialization and model calls.
+
+    See Also
+    --------
+    write_team_heatmaps_video : Renders cumulative team heatmaps as a split-screen video.
     """
     os.makedirs(output_dir, exist_ok=True)
 
