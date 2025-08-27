@@ -1,9 +1,8 @@
 # src/soccer_cv/pipelines/possession.py
 from __future__ import annotations
 from collections import deque
-from typing import Deque, List, Optional, Tuple
+from typing import Optional, Tuple
 
-import os
 import cv2
 import numpy as np
 import supervision as sv
@@ -17,7 +16,7 @@ from .common import (
     detect_ball_and_players,
     classify_players,
     update_homography,
-    anchors_bottom_center,
+    anchors_bottom_center, 
 )
 
 # Tunables
