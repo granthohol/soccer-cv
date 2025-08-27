@@ -40,6 +40,9 @@ Y_MIN, Y_MAX = float(_VERTS[:, 1].min()), float(_VERTS[:, 1].max())
 _X_SPAN = max(1e-6, X_MAX - X_MIN)
 _Y_SPAN = max(1e-6, Y_MAX - Y_MIN)
 
+
+# --- VIDEO OVERLAY BY TEAM HEATMAPS ---
+
 def _accumulate_heat(grid: np.ndarray, xy_canon: np.ndarray) -> None:
     """
     Add counts into a (GRID_H x GRID_W) heat grid from canonical pitch coords.
@@ -233,6 +236,7 @@ def write_team_heatmaps_video(source_video: str, target_video: str) -> None:
             
 
 # ---- HEATMAP BY PLAYER ---
+
 def _put_label_bgr(img: np.ndarray, text: str, org=(10, 28), color=(255,255,255)) -> None:
     """Draw a small bold label (OpenCV BGR)."""
     cv2.putText(img, text, org, cv2.FONT_HERSHEY_SIMPLEX,
