@@ -1,13 +1,14 @@
 # src/soccer_cv/pipelines/heatmaps.py
 from __future__ import annotations
 import os
-from typing import Deque, Optional
+from typing import Deque, Optional, List, Dict
 from collections import deque
 
 import cv2
 import numpy as np
 import supervision as sv
 from tqdm import tqdm
+import math
 
 from sports.annotators.soccer import draw_pitch, draw_points_on_pitch
 
@@ -228,3 +229,169 @@ def write_team_heatmaps_video(source_video: str, target_video: str) -> None:
             # 5) Write split frame
             split = _concat_horiz(left_panel, right_panel)
             sink.write_frame(split)
+            
+            
+
+# ---- HEATMAP BY PLAYER ---
+def _put_label_bgr(img: np.ndarray, text: str, org=(10, 28), color=(255,255,255)) -> None:
+    """Draw a small bold label (OpenCV BGR)."""
+    cv2.putText(img, text, org, cv2.FONT_HERSHEY_SIMPLEX,
+                0.8, (0,0,0), 3, cv2.LINE_AA)       # outline
+    cv2.putText(img, text, org, cv2.FONT_HERSHEY_SIMPLEX,
+                0.8, color,    2, cv2.LINE_AA)       # fill
+
+MIN_PRESENCE_FRAMES = 8   # drop tracks with very few visible frames (noise)
+TOP_K_PER_TEAM      = 10  # keep only top-k players per team
+
+
+def _tile_panels(panels: List[np.ndarray], cols: int) -> np.ndarray:
+    """Stack equally sized HxW panels row-major into a grid image."""
+    assert panels, "no panels to tile"
+    H, W = panels[0].shape[:2]
+    n = len(panels)
+    rows = math.ceil(n / max(1, cols))
+    # pad with blanks to fill the grid
+    if n < rows * cols:
+        panels = panels + [np.zeros_like(panels[0]) for _ in range(rows * cols - n)]
+    grid = []
+    for r in range(rows):
+        row_imgs = panels[r*cols:(r+1)*cols]
+        grid.append(np.concatenate(row_imgs, axis=1))
+    return np.concatenate(grid, axis=0)
+
+
+def write_team_player_heatmap_grids(
+    source_video: str,
+    output_dir: str,
+    *,
+    grid_cols: int = 4,
+    normalize: str = "presence",   # "presence" or "clip"
+    cmap_name: str = "JET",
+    alpha_max: float = 0.7,
+    blur_sigma: float = 5.0,
+) -> Tuple[str, str]:
+    """
+    Process the video once and write two PNGs:
+      - team0_heatmaps_grid.png : grid of per-player heatmaps for team 0 (top 10 only)
+      - team1_heatmaps_grid.png : grid of per-player heatmaps for team 1 (top 10 only)
+
+    Each panel is the final cumulative heatmap for one tracker_id on that team, rendered on
+    the canonical 2D pitch and labeled with `#track_id`.
+
+    `normalize="presence"` divides each player's grid by that player's visible frames;
+    `normalize="clip"` divides by total frames processed.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+
+    # 1) Initialize runtime
+    rt = init_runtime(source_video, want_team_classifier=True)
+    if not hasattr(rt, "team_id_map"):
+        rt.team_id_map = {}
+
+    frames = sv.get_video_frames_generator(source_video)
+    pitch_template = rt.template
+
+    # 2) Per-team, per-player accumulators
+    heats0: Dict[int, np.ndarray] = {}   # tid -> (GRID_H, GRID_W) float32 counts
+    heats1: Dict[int, np.ndarray] = {}
+    pres0: Dict[int, int] = {}           # tid -> presence frames
+    pres1: Dict[int, int] = {}
+    frames_seen = 0
+
+    # 3) Iterate frames once
+    for i, frame in enumerate(tqdm(frames, total=rt.src_info.total_frames)):
+        # Detect + classify players
+        _, players, _ = detect_ball_and_players(frame, rt, conf_obj=OBJ_CONF)
+        team_ids = classify_players(frame, players, rt.team_classifier, rt.team_id_map, frame_idx=i)
+
+        # Update homography periodically
+        if (rt.vt is None) or (i % KEYPOINT_EVERY == 0):
+            update_homography(frame, rt, keypoint_conf=0.30, min_points=MIN_KP, smooth_len=SMOOTH_H)
+
+        frames_seen += 1
+
+        # Accumulate only if valid homography and players present
+        if rt.vt is not None and players.xyxy.size:
+            anchors = anchors_bottom_center(players)       # (N,2) in frame
+            pitch_xy = rt.vt.transform_points(anchors)     # (N,2) in pitch
+
+            tids = getattr(players, "tracker_id", None)
+            if tids is not None and len(tids) == len(pitch_xy):
+                for k in range(len(tids)):
+                    tid_raw = tids[k]
+                    if tid_raw is None:
+                        continue
+                    tid = int(tid_raw)
+                    tm = int(team_ids[k]) if k < len(team_ids) else -1
+                    if tm not in (0, 1):
+                        continue
+
+                    heats = heats0 if tm == 0 else heats1
+                    pres  = pres0  if tm == 0 else pres1
+
+                    if tid not in heats:
+                        heats[tid] = np.zeros((GRID_H, GRID_W), dtype=np.float32)
+                        pres[tid]  = 0
+
+                    xy = pitch_xy[k:k+1]
+                    if xy.size:
+                        _accumulate_heat(heats[tid], xy)
+                        pres[tid] += 1
+
+    # Helper: pick top-K players by “data volume” (sum of heat), tie-break by presence
+    def _top_k_by_data(heats: Dict[int, np.ndarray], pres: Dict[int, int], k: int) -> List[int]:
+        scored = []
+        for tid, grid in heats.items():
+            s = float(grid.sum())    # total visits across grid cells
+            p = int(pres.get(tid, 0))
+            if p < MIN_PRESENCE_FRAMES or s <= 0.0:
+                continue
+            scored.append((tid, s, p))
+        # sort: most data first, then most presence
+        scored.sort(key=lambda t: (t[1], t[2]), reverse=True)
+        return [tid for (tid, _, _) in scored[:k]]
+
+    top0 = _top_k_by_data(heats0, pres0, TOP_K_PER_TEAM)
+    top1 = _top_k_by_data(heats1, pres1, TOP_K_PER_TEAM)
+
+    # 4) Render a grid image for each team (only the selected top-K)
+    def _render_team_grid(heats: Dict[int, np.ndarray], pres: Dict[int, int],
+                          tids: List[int], label_team: int) -> np.ndarray:
+        panels: List[np.ndarray] = []
+        for tid in tids:
+            grid = heats[tid]
+            if normalize == "presence":
+                denom = max(1, pres.get(tid, 0))
+            else:
+                denom = max(1, frames_seen)
+
+            panel = _render_heat_overlay_colormap(
+                base_pitch=pitch_template,
+                grid=grid,
+                frames_seen=denom,
+                blur_sigma=blur_sigma,
+                cmap_name=cmap_name,
+                alpha_max=alpha_max,
+                exposure_pct=98,   # expose once for the final snapshot → makes low counts visible
+            )
+            _put_label_bgr(panel, f"# {tid} (team {label_team})")
+            panels.append(panel)
+
+        if not panels:
+            # produce a single blank pitch with a note if no valid players
+            p = pitch_template.copy()
+            _put_label_bgr(p, f"No valid players for team {label_team}", color=(0, 255, 255))
+            panels = [p]
+
+        return _tile_panels(panels, cols=grid_cols)
+
+    grid0 = _render_team_grid(heats0, pres0, top0, label_team=0)
+    grid1 = _render_team_grid(heats1, pres1, top1, label_team=1)
+
+    # 5) Save PNGs
+    path0 = os.path.join(output_dir, "team0_heatmaps_grid.png")
+    path1 = os.path.join(output_dir, "team1_heatmaps_grid.png")
+    cv2.imwrite(path0, grid0)
+    cv2.imwrite(path1, grid1)
+
+    return path0, path1
