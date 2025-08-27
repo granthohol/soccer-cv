@@ -18,6 +18,7 @@ from .common import (
     update_homography,
     anchors_bottom_center, 
 )
+from ..utils import nearest_to_ball
 
 # Tunables
 KEYPOINT_EVERY   = 5          # refresh homography every K frames
@@ -79,26 +80,14 @@ def _draw_possession_bar(
 
     return canvas    
 
-def _nearest_possessor(
-    ball_xy: np.ndarray,
-    players_xy: np.ndarray,
-    team_ids: np.ndarray,
-    radius_px: float
-) -> int:
-    """
-    Simle heuristic: team of the nearest player to the ball within 'radius_px'.
-    Returns 0 or 1 if a team is assigned, else -1 for unknown.
-    """
-    if ball_xy.size == 0 or players_xy.size == 0:
-        return -1
-    # take first ball point
-    ball = ball_xy[0]
-    dist_xy = players_xy - ball
-    d2 = np.einsum('ij,ij->i', dist_xy, dist_xy)    # einsum distances from ball to player
-    i = int(np.argmin(d2))  # get closest player
-    if np.sqrt(d2[i]) <= radius_px:    # make sure distance is within threshold
-        return int(team_ids[i]) if team_ids[i] in (0, 1) else -1
-    return -1
+def _nearest_possessor(ball_xy, players_xy, team_ids, radius_px) -> int:
+    res = nearest_to_ball(
+        ball_xy, players_xy,
+        team_ids=team_ids,
+        tracker_ids=None,
+        radius_px=radius_px,
+    )
+    return res.team if (res.has_match and res.team is not None) else -1
 
 def write_possession_2d_video(source_video: str, target_video: str) -> Tuple[float, float]:
     """
