@@ -125,4 +125,6 @@ ehthumbs.db
 *.pt
 weights/
 *.mp4
+*.csv
+*.jsonl
 content/

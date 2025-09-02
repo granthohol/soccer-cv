@@ -31,6 +31,8 @@ transformers = ">=4.41,<5"
 timm = ">=0.9.16"
 pillow = ">=10.0"
 pytest = "^8.4.1"
+pandas = "^2.3.2"
+pyarrow = "^21.0.0"
 
 
 [build-system]
