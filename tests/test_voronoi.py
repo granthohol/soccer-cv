@@ -3,7 +3,7 @@ from soccer_cv.pipelines.voronoi import write_voronoi_2d_video
 import os
 
 @pytest.mark.parametrize("input_path, output_path", [
-    ("content/121364_0.mp4", "tests/output/voronoi_121364_0.mp4"),
+    ("content/0bfacc_0.mp4", "tests/output/voronoi_0bfacc_0.mp4"),
 ])
 def test_write_voronoi_2d_video(input_path, output_path):
     # ensure output dir exists
