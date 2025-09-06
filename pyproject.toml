@@ -1,39 +1,68 @@
 [tool.poetry]
+licesne = "MIT"
+include = ["LICENSE"]
 name = "soccer-cv"
 version = "0.1.0"
 description = "Soccer CV library"
 authors = ["Grant Hohol <ghohol@wisc.edu>"]
 readme = "README.md"
+license = "MIT"
 packages = [{ include = "soccer_cv", from = "src" }]
-
-[[tool.poetry.source]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-priority = "supplemental"
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
-numpy = ">=2,<2.3.0"                # match OpenCV’s constraint
+
+# Core runtime deps (no torch here)
+numpy = ">=2,<2.3.0"
 opencv-python-headless = ">=4.10.0.84,<5.0.0"
 tqdm = ">=4.67.1,<5.0.0"
 ultralytics = ">=8.3.176,<9.0.0"
 supervision = ">=0.26.1,<0.27.0"
 huggingface_hub = ">=0.34.4,<0.35.0"
-# git dependency (branch/tag/commit as you like)
-sports = { git = "https://github.com/roboflow/sports.git", branch = "main" }
 roboflow = "^1.2.3"
-# --- Pin the CPU-only PyTorch stack and align versions ---
-torch = { version = "2.4.1", source = "pytorch-cpu" }
-torchvision = { version = "0.19.1", source = "pytorch-cpu" }
+sports = { git = "https://github.com/roboflow/sports.git", branch = "main" }
 
-# Team classifier dependencies
-transformers = ">=4.41,<5"
-timm = ">=0.9.16"
-pillow = ">=10.0"
-pytest = "^8.4.1"
-pandas = "^2.3.2"
-pyarrow = "^21.0.0"
+# Optional bits
+PyYAML = { version = ">=6.0", optional = true }
+pandas = { version = "^2.3.2", optional = true }
+pyarrow = { version = "^21.0.0", optional = true }
+pytest = { version = "^8.4.1", optional = true }
 
+# Torch/TV optional so users can choose backend
+torch = { version = ">=2.4.1,<3", optional = true }
+torchvision = { version = ">=0.19.1,<1", optional = true }
+
+[tool.poetry.extras]
+# Works with pip on Linux/Windows/mac for CPU-only
+cpu = ["torch", "torchvision"]
+
+# Works with pip on macOS – the standard PyPI torch wheel includes MPS
+mps = ["torch", "torchvision", "PyYAML"]  # YAML optional, toss it here if you like
+
+# CUDA extra is just a label (pip cannot switch indexes automatically).
+# Keep it for UX/README clarity; users still install CUDA wheels in a second step.
+cuda = ["PyYAML"]  # (no torch here on purpose)
+
+# Data convenience
+data = ["pandas", "pyarrow"]
+
+# Dev convenience
+dev = ["pytest"]
+
+# Everything except CUDA wheels (which must be installed manually by the user)
+all = ["PyYAML", "pandas", "pyarrow", "pytest"]
+
+# ---------- Poetry-only convenience (ignored by pip) ----------
+# If users install via Poetry (from source), these sources let *you* offer CUDA extras.
+[[tool.poetry.source]]
+name = "pytorch-cu121"
+url = "https://download.pytorch.org/whl/cu121"
+priority = "supplemental"
+
+[tool.poetry.group.cuda121.dependencies]
+# poetry users can do: `poetry install --with cuda121`
+torch = { version = "2.4.1", source = "pytorch-cu121" }
+torchvision = { version = "0.19.1", source = "pytorch-cu121" }
 
 [build-system]
 requires = ["poetry-core>=1.8.0"]
