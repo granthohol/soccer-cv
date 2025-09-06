@@ -127,4 +127,8 @@ weights/
 *.mp4
 *.csv
 *.jsonl
+tests/
 content/
+
+pypi_api_token.txt
+pypi_codes.txt
