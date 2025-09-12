@@ -1,13 +1,14 @@
 # soccer-cv
 ### A python library for soccer (football) data and visualization abstraction, just from video input
 
-<!-- Replace USER, REPO, BRANCH -->
+##### 3D -> 2D with Team Shape
+![Team Control](media/compare_sxs_shape_121364_0-ezgif.com-speed.gif)
 
-<img src="media/compare_sxs_shape_121364_0-ezgif.com-speed.gif" alt="Team Control" width="1200"/>
-
+##### Player Heatmaps (Defense)
 ![Player Heatmaps](media/team0_heatmaps_grid.png)
 
 
+##### Player Kinetic Data
 |   team_id_mode |   track_id |   samples |   duration_s |   total_distance_m |   distance_per_min_m |   mean_speed_m_s |   median_speed_m_s |   p95_speed_m_s |   max_speed_m_s |   hi_time_s |   sprint_time_s |   hi_distance_m |   accel_events |   max_accel_mag_m_s2 |   stops |
 |---------------:|-----------:|----------:|-------------:|-------------------:|---------------------:|-----------------:|-------------------:|----------------:|----------------:|------------:|----------------:|----------------:|---------------:|---------------------:|--------:|
 |              0 |          6 |       718 |        29.96 |              78.78 |               157.77 |             1.94 |               1.7  |            3.85 |            5.31 |        0.6  |            0    |            3.11 |             79 |                27.65 |       4 |
