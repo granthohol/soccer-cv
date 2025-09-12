@@ -18,16 +18,6 @@
 </video>
 
 
-
-<video controls width="640" muted playsinline preload="metadata">
-  <source src="examples/side_w_image_121364_0.mp4?raw=1" type="video/mp4" />
-</video>
-
-<video controls width="640" muted playsinline preload="metadata">
-  <source src="examples/ball_path_121364_0.mp4?raw=1" type="video/mp4" />
-</video>
-
-
 |   team_id_mode |   track_id |   samples |   duration_s |   total_distance_m |   distance_per_min_m |   mean_speed_m_s |   median_speed_m_s |   p95_speed_m_s |   max_speed_m_s |   hi_time_s |   sprint_time_s |   hi_distance_m |   accel_events |   max_accel_mag_m_s2 |   stops |
 |---------------:|-----------:|----------:|-------------:|-------------------:|---------------------:|-----------------:|-------------------:|----------------:|----------------:|------------:|----------------:|----------------:|---------------:|---------------------:|--------:|
 |              0 |          6 |       718 |        29.96 |              78.78 |               157.77 |             1.94 |               1.7  |            3.85 |            5.31 |        0.6  |            0    |            3.11 |             79 |                27.65 |       4 |
