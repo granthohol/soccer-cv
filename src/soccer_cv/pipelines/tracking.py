@@ -7,6 +7,7 @@ from typing import Dict, Tuple, Optional
 
 import cv2
 import numpy as np
+import pandas as pd
 import supervision as sv
 from tqdm import tqdm
 
@@ -318,3 +319,216 @@ def write_tracking_video(source_video: str, target_video: str) -> None:
                         r["can_x"], r["can_y"],
                         r["x_m"], r["y_m"], r["vx_m_s"], r["vy_m_s"], r["speed_m_s"], r["ax_m_s2"], r["ay_m_s2"]
                     ])
+                    
+                    
+def summarize_player_stats(
+    csv_path: str,
+    *,
+    output_csv: Optional[str] = None,
+    speed_hi: float = 5.0,       # m/s (≈18 km/h) “high-intensity”
+    speed_sprint: float = 7.0,   # m/s (≈25 km/h) “sprint”
+    accel_thr: float = 2.5       # m/s^2 (high accel magnitude threshold)
+) -> pd.DataFrame:
+    """
+    Read a tracking CSV (one row per player per frame, created using 'write_tracking_video())
+    and compute per-player statistics.
+
+    Expected columns (names case sensitive):
+        frame, time_s, track_id, team_id, x_m, y_m, speed_m_s, ax_m_s2, ay_m_s2
+    (If x_m/y_m are missing, will fall back to can_x/can_y.)
+
+    Output columns (per track_id):
+        - team_id_mode
+        - track_id
+        - total_distance_m
+        - distance_per_min_m
+        - mean_speed_m_s
+        - median_speed_m_s
+        - p95_speed_m_s
+        - max_speed_m_s
+        - hi_time_s
+        - sprint_time_s
+        - hi_distance_m
+        - accel_events           
+        - max_accel_mag_m_s2
+        - stops
+    """
+    # ---------- Load & normalize required columns ----------
+    cols_needed = [
+        "frame", "time_s", "track_id", "team_id",
+        "x_m", "y_m", "speed_m_s", "ax_m_s2", "ay_m_s2"
+    ]
+    df = pd.read_csv(csv_path)
+
+    for c in cols_needed:
+        if c not in df.columns:
+            # Fallback for positions
+            if c == "x_m" and "can_x" in df.columns:
+                df["x_m"] = df["can_x"].astype(float)
+                continue
+            if c == "y_m" and "can_y" in df.columns:
+                df["y_m"] = df["can_y"].astype(float)
+                continue
+            if c not in df.columns:
+                raise ValueError(f"Required column '{c}' not found in CSV.")
+
+    # Sort for stable diffs
+    df = df.sort_values(["track_id", "frame", "time_s"], kind="mergesort").reset_index(drop=True)
+
+    # ---------- Select top-10 track_ids per team by presence (row count) ----------
+    def _mode_safe(s: pd.Series) -> int:
+        try:
+            m = s.mode(dropna=True)
+            if len(m):
+                return int(m.iloc[0])
+            s2 = s.dropna()
+            return int(s2.iloc[0]) if len(s2) else -1
+        except Exception:
+            return -1
+
+    pre = (
+        df.groupby("track_id", sort=False)
+          .agg(samples=("track_id", "size"),
+               team_id_mode=("team_id", _mode_safe))
+          .reset_index()
+    )
+
+    top_ids = []
+    for tm in (0, 1):
+        ids = (pre.loc[pre.team_id_mode == tm]
+                  .sort_values("samples", ascending=False)
+                  .head(10)["track_id"]
+                  .tolist())
+        top_ids.extend(ids)
+
+    df = df[df["track_id"].isin(top_ids)].copy()
+
+    # ---------- Per-player summarization ----------
+    rows = []
+
+    # Helper: stricter acceleration event counter
+    # Counts a burst only if:
+    #   - a_mag >= accel_thr AND speed > 1.5 m/s (gate)
+    #   - sustained for >= 0.12 s
+    #   - speed gain across the burst >= 0.8 m/s
+    #   - 0.30 s cooldown after each accepted burst
+    def _count_accel_bursts(t: np.ndarray, v: np.ndarray, a_mag: np.ndarray) -> int:
+        if t.size < 2:
+            return 0
+        n = len(t)
+        i = 0
+        events = 0
+        MIN_DUR = 0.12       # seconds
+        MIN_DV  = 0.8        # m/s
+        SPEED_GATE = 1.5     # m/s
+        COOLDOWN = 0.30      # seconds
+        while i < n:
+            if a_mag[i] >= accel_thr and v[i] > SPEED_GATE:
+                # grow segment
+                j = i + 1
+                while j < n and a_mag[j] >= accel_thr and v[j] > SPEED_GATE:
+                    j += 1
+                t0, t1 = t[i], t[j-1]
+                dur = max(0.0, float(t1 - t0))
+                dv  = float(v[j-1] - v[i])
+                if dur >= MIN_DUR and dv >= MIN_DV:
+                    events += 1
+                    # cooldown: skip ahead until time passes COOLDOWN beyond t1
+                    while j < n and t[j] < t1 + COOLDOWN:
+                        j += 1
+                i = j
+            else:
+                i += 1
+        return events
+
+    for tid, g in df.groupby("track_id", sort=False):
+        g = g.copy()
+
+        # Basic series
+        t  = g["time_s"].to_numpy(dtype=float)
+        x  = g["x_m"].to_numpy(dtype=float)
+        y  = g["y_m"].to_numpy(dtype=float)
+        v  = g["speed_m_s"].to_numpy(dtype=float)
+        ax = g["ax_m_s2"].to_numpy(dtype=float)
+        ay = g["ay_m_s2"].to_numpy(dtype=float)
+
+        # Time deltas aligned to current rows (dt[0] = 0)
+        dt = np.diff(t, prepend=t[0])
+        dt[dt < 0] = 0.0  # guard time glitches
+
+        # Path length
+        step_dx = np.diff(x, prepend=x[0])
+        step_dy = np.diff(y, prepend=y[0])
+        step_dist = np.hypot(step_dx, step_dy)
+        total_distance = float(np.nansum(step_dist))
+
+        # Duration for internal rate calcs (not returned)
+        duration_s = float(max(0.0, t[-1] - t[0])) if len(t) else 0.0
+
+        # Speed stats
+        v_clean = v[~np.isnan(v)]
+        mean_speed   = float(np.nanmean(v)) if v_clean.size else 0.0
+        median_speed = float(np.nanmedian(v)) if v_clean.size else 0.0
+        p95_speed    = float(np.nanpercentile(v, 95)) if v_clean.size else 0.0
+        max_speed    = float(np.nanmax(v)) if v_clean.size else 0.0
+
+        # High-intensity time & distance
+        hi_mask     = v > speed_hi
+        sprint_mask = v > speed_sprint
+        hi_time     = float(np.nansum(dt[hi_mask])) if dt.size else 0.0
+        sprint_time = float(np.nansum(dt[sprint_mask])) if dt.size else 0.0
+        hi_distance = float(np.nansum((v * dt)[hi_mask])) if dt.size else 0.0
+
+        # Acceleration
+        a_mag = np.hypot(ax, ay)
+        accel_events = _count_accel_bursts(t, v, a_mag)
+        max_accel_mag = float(np.nanmax(a_mag)) if a_mag.size else 0.0
+
+        # Stops: moving (>0.5 m/s) → not moving
+        moving = v > 0.5
+        stops = int(np.sum(np.logical_and(moving[:-1], ~moving[1:]))) if moving.size > 1 else 0
+
+        # Team = modal team_id
+        try:
+            team_mode = int(g["team_id"].mode(dropna=True).iloc[0])
+        except Exception:
+            team_mode = int(g["team_id"].iloc[0]) if len(g) else -1
+
+        rows.append(dict(
+            team_id_mode=team_mode,
+            track_id=int(tid),
+            total_distance_m=round(total_distance, 2),
+            distance_per_min_m=round(total_distance / (duration_s / 60.0), 2) if duration_s > 0 else 0.0,
+            mean_speed_m_s=round(mean_speed, 2),
+            median_speed_m_s=round(median_speed, 2),
+            p95_speed_m_s=round(p95_speed, 2),
+            max_speed_m_s=round(max_speed, 2),
+            hi_time_s=round(hi_time, 2),
+            sprint_time_s=round(sprint_time, 2),
+            hi_distance_m=round(hi_distance, 2),
+            accel_events=int(accel_events),
+            max_accel_mag_m_s2=round(max_accel_mag, 2),
+            stops=int(stops),
+        ))
+
+    out = pd.DataFrame(rows)
+
+    # Keep only top-10 per team *again* at the summary level (in case some track_ids flipped team_mode)
+    # We determine "top" by presence in the original df (row counts).
+    presence = df.groupby("track_id").size().rename("samples")
+    out = out.merge(presence, on="track_id", how="left")
+    filtered = []
+    for tm in (0, 1):
+        sub = out[out["team_id_mode"] == tm].sort_values("samples", ascending=False).head(10)
+        filtered.append(sub)
+    out = pd.concat(filtered, axis=0).sort_values(["team_id_mode", "track_id"]).reset_index(drop=True)
+    out = out.drop(columns=["samples"], errors="ignore")  # drop helper column
+
+    # Pretty print
+    with pd.option_context("display.max_rows", None, "display.max_columns", None):
+        print(out.to_string(index=False))
+
+    if output_csv:
+        out.to_csv(output_csv, index=False)
+
+    return out
