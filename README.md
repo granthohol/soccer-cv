@@ -2,20 +2,9 @@
 ### A python library for soccer (football) data and visualization abstraction, just from video input
 
 <!-- Replace USER, REPO, BRANCH -->
-<video controls muted playsinline preload="metadata" width="640" style="max-width:100%;">
-  <source src="https://private-user-images.githubusercontent.com/144488510/489017846-ee1854ca-78ae-45c5-ab05-99812ef2860b.mp4?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NTc3MTEwNjQsIm5iZiI6MTc1NzcxMDc2NCwicGF0aCI6Ii8xNDQ0ODg1MTAvNDg5MDE3ODQ2LWVlMTg1NGNhLTc4YWUtNDVjNS1hYjA1LTk5ODEyZWYyODYwYi5tcDQ_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjUwOTEyJTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI1MDkxMlQyMDU5MjRaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT01OGViZTI5MGNlOThjN2M5N2MzNTgxMzYzY2Y2ZWNjNmJkOTgwNmJiYTE3YjFhZmNhYmY2NjI4OTY2ZjU0MmI4JlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCJ9.AKSEAOwbfK4_KYbwlfx-PpR1m8DcOtXupMVztSqEa4g" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
 
-<video controls muted playsinline preload="metadata" width="640" style="max-width:100%;">
-  <source src="https://private-user-images.githubusercontent.com/144488510/489018237-12f8f50f-c19a-4ba3-9e7d-946e569f56de.mp4?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NTc3MTEzMzEsIm5iZiI6MTc1NzcxMTAzMSwicGF0aCI6Ii8xNDQ0ODg1MTAvNDg5MDE4MjM3LTEyZjhmNTBmLWMxOWEtNGJhMy05ZTdkLTk0NmU1NjlmNTZkZS5tcDQ_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjUwOTEyJTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI1MDkxMlQyMTAzNTFaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT02ZmJiOGQ4ODk4NzliNjRlNDAzMTY2NmM5M2Q4ZjEyNjRhNzQ0ZDhhMGUwMTY3ZjU0ODZkZjY2MDk4ZjY4NzkyJlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCJ9.hBOhnt8zTEr0UV1um3EIDq9QX_Qcg2XMQTm5HAG6rt4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+![Team Control](gifs/compare_sxs_shape_121364_0-ezgif.com-speed.gif)
 
-<video controls muted playsinline preload="metadata" width="640" style="max-width:100%;">
-  <source src="https://private-user-images.githubusercontent.com/144488510/489018065-eee7f3f8-4e7c-4d18-95cb-fac69380efbc.mp4?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NTc3MTEzMzEsIm5iZiI6MTc1NzcxMTAzMSwicGF0aCI6Ii8xNDQ0ODg1MTAvNDg5MDE4MDY1LWVlZTdmM2Y4LTRlN2MtNGQxOC05NWNiLWZhYzY5MzgwZWZiYy5tcDQ_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjUwOTEyJTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI1MDkxMlQyMTAzNTFaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT03ZWJiZDk5MzYyMmJmYTQ5NDEyNGVkZTQ4ZGE2MWFhYWZjZmY2ODJjYjE5NjRlOGFiNWY5NmZlZTY3ZmUxN2Y5JlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCJ9.tyH1Xn2OlhZrza3fDHrvQ1H6CyIFMul8iuISjtYpANM" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
 
 
 |   team_id_mode |   track_id |   samples |   duration_s |   total_distance_m |   distance_per_min_m |   mean_speed_m_s |   median_speed_m_s |   p95_speed_m_s |   max_speed_m_s |   hi_time_s |   sprint_time_s |   hi_distance_m |   accel_events |   max_accel_mag_m_s2 |   stops |
