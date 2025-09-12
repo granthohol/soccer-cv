@@ -3,7 +3,7 @@
 
 <!-- Replace USER, REPO, BRANCH -->
 
-![Team Control](media/compare_sxs_shape_121364_0-ezgif.com-speed.gif)
+<img src="media/compare_sxs_shape_121364_0-ezgif.com-speed.gif" alt="Team Control" width="800"/>
 
 ![Player Heatmaps](media/team0_heatmaps_grid.png)
 
