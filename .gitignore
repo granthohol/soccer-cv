@@ -124,7 +124,6 @@ ehthumbs.db
 /runs/
 *.pt
 weights/
-*.mp4
 *.csv
 *.jsonl
 tests/
