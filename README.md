@@ -67,59 +67,44 @@ write_team_shape_video("content/clip.mp4", "output/team_shape.mp4")
 ```
 
 ### How it works (brief)
-1. Detect players/refs/ball each frame (ball ROI “fast path” where possible).
-2. Track non-ball objects (ByteTrack) → stable track_ids.
-3. Classify team per track_id with periodic refresh to resist ID switches.
-4. Estimate homography from pitch keypoints and smooth it.
-5. Project bottom-center anchors to the canonical pitch.
-6. Render the chosen visualization, often every k frames + cross-fade to cut jitter.
+1. Detect players, refs, ball, and pitch keypoints in each frame with self-trained YOLOv8 models (weights: https://huggingface.co/granthohol/soccer-cv-weights/tree/main
+2. Track players/refs with ByteTrack to get persistent track_ids; smooth each ID’s trajectory with a constant-velocity Kalman filter (distance-gated) to stabilize positions/velocities/accelerations in field units.
+3. Classify teams per track_id using a lightweight color-based team classifier trained from early crops; cache a track_id → team_id map.
+4. Estimate homography from detected pitch keypoints and smooth it over time.
+5. Project bottom-center anchors through the homography to the canonical 2D pitch (and convert to meters).
+6. Render the chosen visualization (Voronoi, heatmaps, shapes, tracking) and derive metrics (possession, speed/accel, control %, etc.).  
 
 
-# Install
+# Installation
 
-## Prereqs
+### 1. Requirements
 - Python 3.10-3.12
-- A clean virtual environment (recommended)
+- OS: Linux (tested). macOS and Windows should work but are less exercised.
+- Tools: git
+
+### 2. Choose your PyTorch backend
+
+##### GPU CUDA (recommended if available)
 ```bash
-# pick one
-python -m venv .venv && source .venv/bin/activate      # venv
-# OR
-conda create -n soccer-cv python=3.12 -y && conda activate soccer-cv
-```
-- Model access
-```
-# either login (stores a token)
-huggingface-cli login
-# or set an env var (CI-friendly)
-export HF_TOKEN=hf_XXXXXXXXXXXXXXXXXXXXXXXXXXXX
+pip install --index-url https://download.pytorch.org/whl/cu121 torch torchvision
+pip install "soccer-cv[cuda]"
 ```
 
-### GPU CUDA (recommend if available)
-
-1. Preinstall the matching CUDA wheels
-``` bash
-pip install --index-url https://download.pytorch.org/whl/cu121 torch==2.4.1 torchvision==0.19.1
+##### CPU
+```
+pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
+pip install "soccer-cv[cpu]"
 ```
 
-2. Install the soccer_cv library from GitHub
-```bash
-pip install "git+https://github.com/granthohol/soccer-cv.git@main"
+##### Apple Silicon
+```
+pip install torch torchvision
+pip install "soccer-cv[mps]"
 ```
 
-### MPS (Apple Silicon)
-
-
-### CPU
-
-1. Preinstall the CPU PyTorch stack (avoiding large CUDA downloads)
-```bash
-pip install --index-url https://download.pytorch.org/whl/cpu torch==2.4.1 torchvision==0.19.1
-```
-
-2. Install the soccer_cv library from GitHub
-```bash
-pip install "git+https://github.com/granthohol/soccer-cv.git@main"
-```
-
+### 3. Weights (auto-download)
+On first use, models auto-download from Hugging Face
+- Cached under your HF cache (e.g. `~/.cache/huggingface)`).
+- If you prefer manual download, place the `.pt` files where the enviornment's HF cache can see them.
 
 
