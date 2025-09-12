@@ -57,7 +57,7 @@ write_ball_path_2d_video("content/clip.mp4", "output/ball_path.mp4")
 from soccer_cv.pipelines.possession import write_possession_video
 write_possession_video("content/clip.mp4", "output/possession.mp4")
 
-# Per-team player heatmap grids (final PNGs; top-10 by data)
+# Per-team player heatmap grids (final PNGs)
 from soccer_cv.pipelines.heatmaps import write_team_player_heatmap_grids
 write_team_player_heatmap_grids("content/clip.mp4", "output/")
 
@@ -68,8 +68,8 @@ write_team_shape_video("content/clip.mp4", "output/team_shape.mp4")
 
 ### How it works (brief)
 1. Detect players, refs, ball, and pitch keypoints in each frame with self-trained YOLOv8 models (weights: https://huggingface.co/granthohol/soccer-cv-weights/tree/main
-2. Track players/refs with ByteTrack to get persistent track_ids; smooth each ID’s trajectory with a constant-velocity Kalman filter (distance-gated) to stabilize positions/velocities/accelerations in field units.
-3. Classify teams per track_id using a lightweight color-based team classifier trained from early crops; cache a track_id → team_id map.
+2. Track players/refs with ByteTrack to get persistent `track_ids`; smooth each ID’s trajectory with a constant-velocity Kalman filter (distance-gated) to stabilize positions/velocities/accelerations in field units.
+3. Classify teams per track_id using a lightweight color-based team classifier trained from early crops; cache a `track_id` → `team_id` map.
 4. Estimate homography from detected pitch keypoints and smooth it over time.
 5. Project bottom-center anchors through the homography to the canonical 2D pitch (and convert to meters).
 6. Render the chosen visualization (Voronoi, heatmaps, shapes, tracking) and derive metrics (possession, speed/accel, control %, etc.).  
@@ -104,7 +104,7 @@ pip install "soccer-cv[mps]"
 
 ### 3. Weights (auto-download)
 On first use, models auto-download from Hugging Face
-- Cached under your HF cache (e.g. `~/.cache/huggingface)`).
+- Cached under your HF cache (e.g. `~/.cache/huggingface`).
 - If you prefer manual download, place the `.pt` files where the enviornment's HF cache can see them.
 
 
