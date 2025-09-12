@@ -3,8 +3,9 @@
 
 <!-- Replace USER, REPO, BRANCH -->
 
-![Team Control](gifs/compare_sxs_shape_121364_0-ezgif.com-speed.gif)
+![Team Control](media/compare_sxs_shape_121364_0-ezgif.com-speed.gif)
 
+![Player Heatmaps](media/team0_heatmaps_grid.png)
 
 
 |   team_id_mode |   track_id |   samples |   duration_s |   total_distance_m |   distance_per_min_m |   mean_speed_m_s |   median_speed_m_s |   p95_speed_m_s |   max_speed_m_s |   hi_time_s |   sprint_time_s |   hi_distance_m |   accel_events |   max_accel_mag_m_s2 |   stops |
