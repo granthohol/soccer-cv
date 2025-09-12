@@ -48,7 +48,17 @@ def init_runtime(
     5. Prepares a ByteTrack tracker
     6. (Optional) Fits a TeamClassifier from early crops
     """
-    from sports.annotators.soccer import draw_pitch
+    
+    try:
+        from sports.annotators.soccer import (
+            draw_pitch,
+    )   
+    except Exception as e:
+        raise ImportError(
+        "The 'sports' package is required for this feature. "
+        "Install it separately:\n\n"
+        "  pip install \"sports @ git+https://github.com/roboflow/sports.git@main\"\n"
+    ) from e
 
     device = pick_device()
 
@@ -83,8 +93,18 @@ def init_runtime(
 
     team_clf = None
     if want_team_classifier:
-        # Fit a tiny color based classifier from early crops
-        from sports.common.team import TeamClassifier
+        # Fit a tiny color based classifier from early crops        
+        try:
+            from sports.common.team import (
+                TeamClassifier,
+            )
+        except Exception as e:
+            raise ImportError(
+                "The 'sports' package is required for this feature. "
+                "Install it separately:\n\n"
+                "  pip install \"sports @ git+https://github.com/roboflow/sports.git@main\"\n"
+            ) from e
+        
         from ..utils import extract_crops
 
         crops = extract_crops(source_video)

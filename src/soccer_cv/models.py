@@ -2,7 +2,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 import hashlib
 
 from huggingface_hub import hf_hub_download

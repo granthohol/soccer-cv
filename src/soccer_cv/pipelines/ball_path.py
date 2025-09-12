@@ -5,9 +5,19 @@ from tqdm import tqdm
 import numpy as np
 from collections import deque
 import supervision as sv
-from sports.annotators.soccer import draw_pitch, draw_paths_on_pitch, draw_points_on_pitch
 from ..config import DEFAULT_CONFIG as CONFIG
 from .common import init_runtime, detect_ball_and_players, update_homography, anchors_bottom_center
+
+try:
+    from sports.annotators.soccer import (
+        draw_paths_on_pitch,
+    )
+except Exception as e:
+    raise ImportError(
+        "The 'sports' package is required for this feature. "
+        "Install it separately:\n\n"
+        "  pip install \"sports @ git+https://github.com/roboflow/sports.git@main\"\n"
+    ) from e
 
 BALL_ID = 0
 H_SMOOTH_MAXLEN = 5             # how many recent homography matrices kept to smooth

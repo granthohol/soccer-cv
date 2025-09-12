@@ -10,7 +10,16 @@ import supervision as sv
 from tqdm import tqdm
 import math
 
-from sports.annotators.soccer import draw_pitch, draw_points_on_pitch
+try:
+    from sports.annotators.soccer import (
+        draw_points_on_pitch,
+    )
+except Exception as e:
+    raise ImportError(
+        "The 'sports' package is required for this feature. "
+        "Install it separately:\n\n"
+        "  pip install \"sports @ git+https://github.com/roboflow/sports.git@main\"\n"
+    ) from e
 
 from ..config import DEFAULT_CONFIG as CONFIG
 from .common import (
