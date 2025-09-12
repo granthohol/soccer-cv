@@ -1,17 +1,19 @@
 # soccer-cv
 ### A python library for soccer (football) data and visualization abstraction, just from video input
 
-<video src="examples/compare_sxs_shape_121364_0.mp4" controls width="640" muted playsinline>
-Sorry, you browser doesn't support embedded videos.
+<video controls width="640" muted playsinline preload="metadata">
+  <source src="examples/compare_sxs_shape_121364_0.mp4?raw=1" type="video/mp4" />
+  Your browser doesn't support embedded videos.
 </video>
 
-<video src="examples/side_w_image_121364_0.mp4" controls width="640" muted playsinline>
-Sorry, you browser doesn't support embedded videos.
+<video controls width="640" muted playsinline preload="metadata">
+  <source src="examples/side_w_image_121364_0.mp4?raw=1" type="video/mp4" />
 </video>
 
-<video src="examples/ball_path_121364_0.mp4" controls width="640" muted playsinline>
-Sorry, you browser doesn't support embedded videos.
+<video controls width="640" muted playsinline preload="metadata">
+  <source src="examples/ball_path_121364_0.mp4?raw=1" type="video/mp4" />
 </video>
+
 
 |   team_id_mode |   track_id |   samples |   duration_s |   total_distance_m |   distance_per_min_m |   mean_speed_m_s |   median_speed_m_s |   p95_speed_m_s |   max_speed_m_s |   hi_time_s |   sprint_time_s |   hi_distance_m |   accel_events |   max_accel_mag_m_s2 |   stops |
 |---------------:|-----------:|----------:|-------------:|-------------------:|---------------------:|-----------------:|-------------------:|----------------:|----------------:|------------:|----------------:|----------------:|---------------:|---------------------:|--------:|
