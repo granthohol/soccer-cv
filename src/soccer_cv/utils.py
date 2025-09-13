@@ -4,7 +4,6 @@ from .models import load_default_object_model
 import supervision as sv
 from typing import Optional, Sequence
 from dataclasses import dataclass
-import pandas as pd
 
 
 def resolve_goalkeepers_team_id(players_detections: sv.Detections, goalkeepers_detections: sv.Detections):

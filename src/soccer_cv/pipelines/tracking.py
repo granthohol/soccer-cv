@@ -7,7 +7,6 @@ from typing import Dict, Tuple, Optional
 
 import cv2
 import numpy as np
-import pandas as pd
 import supervision as sv
 from tqdm import tqdm
 
@@ -361,6 +360,14 @@ def summarize_player_stats(
         - max_accel_mag_m_s2
         - stops
     """
+    try:
+        import pandas as pd
+    except ImportError as e:
+        raise ImportError(
+            "pandas is required for summarize_player_stats(). "
+            "Install with `pip install soccer-cv[data]` or `pip install pandas`."
+        ) from e
+    
     # ---------- Load & normalize required columns ----------
     cols_needed = [
         "frame", "time_s", "track_id", "team_id",
