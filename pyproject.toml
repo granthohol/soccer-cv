@@ -2,7 +2,7 @@
 license = "MIT"
 include = ["LICENSE"]
 name = "soccer-cv"
-version = "0.1.3"
+version = "0.1.4"
 description = "Soccer CV library"
 authors = ["Grant Hohol <ghohol@wisc.edu>"]
 readme = "README.md"
