@@ -45,25 +45,10 @@ Formats functionality as extensible pipelines. Each function can be imported and
 
 ### Pipelines at a glance
 ```python
-# Voronoi control (with continuous control % HUD)
-from soccer_cv.pipelines.voronoi2d import write_voronoi_2d_video
-write_voronoi_2d_video("content/121364_0.mp4", "output/voronoi_121364_0.mp4")
-
-# Ball path (2D trail over canonical pitch)
-from soccer_cv.pipelines.ball_path import write_ball_path_2d_video
-write_ball_path_2d_video("content/clip.mp4", "output/ball_path.mp4")
-
-# Rolling possession (nearest-to-ball heuristic, gap handling)
-from soccer_cv.pipelines.possession import write_possession_video
-write_possession_video("content/clip.mp4", "output/possession.mp4")
-
-# Per-team player heatmap grids (final PNGs)
-from soccer_cv.pipelines.heatmaps import write_team_player_heatmap_grids
-write_team_player_heatmap_grids("content/clip.mp4", "output/")
-
-# Team shape (convex hulls + centroid/area/width/depth; cross-faded)
+# Team Control in 2D layout
+# You can run this by cloning this repo or downloading the library and sample video
 from soccer_cv.pipelines.team_shape import write_team_shape_video
-write_team_shape_video("content/clip.mp4", "output/team_shape.mp4")
+write_team_shape_video("media/121364_0.mp4", "team_shape_121364_0.mp4")
 ```
 
 ### How it works (brief)
