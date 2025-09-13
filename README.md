@@ -87,21 +87,21 @@ write_team_shape_video("content/clip.mp4", "output/team_shape.mp4")
 ##### GPU CUDA (recommended if available)
 ```bash
 pip install --index-url https://download.pytorch.org/whl/cu121 torch torchvision
-pip install "sports @ git+https://github.com/roboflow/sports.git@main
+pip install "sports@git+https://github.com/roboflow/sports.git@main
 pip install "soccer-cv[cuda]"
 ```
 
 ##### CPU
 ```
 pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
-pip install "sports @ git+https://github.com/roboflow/sports.git@main
+pip install "sports@git+https://github.com/roboflow/sports.git@main
 pip install "soccer-cv[cpu]"
 ```
 
 ##### Apple Silicon
 ```
 pip install torch torchvision
-pip install "sports @ git+https://github.com/roboflow/sports.git@main
+pip install "sports@git+https://github.com/roboflow/sports.git@main
 pip install "soccer-cv[mps]"
 ```
 
