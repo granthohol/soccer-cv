@@ -1,5 +1,5 @@
 # soccer-cv
-### A python library for soccer (football) data and visualization abstraction, just from video input
+### A python library that converts raw video into rich soccer metrics and visuals, no external data required
 
 ##### 3D -> 2D with Team Shape
 <img src="media/compare_sxs_shape_121364_0-ezgif.com-speed.gif" alt="Team Control" width="100%"/>
