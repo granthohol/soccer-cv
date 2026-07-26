@@ -4,6 +4,7 @@
 [![Python versions](https://img.shields.io/pypi/pyversions/soccer-cv.svg)](https://pypi.org/project/soccer-cv/)
 [![License: MIT](https://img.shields.io/github/license/granthohol/soccer-cv.svg)](LICENSE)
 [![PyPI downloads](https://img.shields.io/pypi/dm/soccer-cv.svg)](https://pypi.org/project/soccer-cv/)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/granthohol/soccer-cv/blob/main/notebooks/quickstart.ipynb)
 
 ### A python library that converts raw video into rich soccer metrics and visuals, no external data required
 
@@ -48,6 +49,8 @@ Analyst-style visuals and data extraction from ordinary footage. Can be used at 
 - Extracting player kinetic data over time such as position, speed, acceleration, etc.
 
 Formats functionality as extensible pipelines. Each function can be imported and run with no needed input besides a video. 
+
+**Fastest way to try it:** open [`notebooks/quickstart.ipynb`](notebooks/quickstart.ipynb) in Colab (badge above) — it installs the library and runs three pipelines on the bundled sample clip in a few minutes, no local setup required.
 
 ### Pipelines at a glance
 ```python
