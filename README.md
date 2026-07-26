@@ -52,7 +52,7 @@ Analyst-style visuals and data extraction from ordinary footage. Can be used at 
 
 Formats functionality as extensible pipelines. Each function can be imported and run with no needed input besides a video. 
 
-**Fastest way to try it:** open [`notebooks/quickstart.ipynb`](notebooks/quickstart.ipynb) in Colab (badge above) — it installs the library and runs three pipelines on the bundled sample clip in a few minutes, no local setup required.
+**Fastest way to try it:** open [`notebooks/quickstart.ipynb`](notebooks/quickstart.ipynb) in Colab (badge above). It installs the library and runs three pipelines on the bundled sample clip in a few minutes, no local setup required.
 
 ### Pipelines at a glance
 ```python
@@ -63,19 +63,19 @@ write_team_shape_video("media/121364_0.mp4", "team_shape_121364_0.mp4")
 ```
 
 ### Structured data exports
-Every pipeline that renders a video/image also writes structured data next to it, at an auto-derived path — no extra parameters needed:
-- `write_tracking_video`, `write_team_shape_video`, `write_voronoi_2d_video`, `write_ball_path_2d_video` → `<output_stem>_metrics.csv` (one row per frame, stdlib `csv`, no pandas required to write)
-- `write_team_heatmaps_video` → `<output_stem>_heatmaps.npz` (cumulative per-team grids + pitch geo-reference metadata)
-- `write_team_player_heatmap_grids` → `player_heatmaps.npz` + `player_heatmaps_manifest.csv` in `output_dir` (per-player grids for the top players shown in the PNGs)
-- `write_possession_2d_video` → additionally writes `<output_stem>_events.csv` (one row per **confirmed** pass/turnover: `frame, time_s, type, from_tid, from_team, to_tid, to_team`)
-- `write_pass_network` → `<output_stem>_nodes.csv` + `<output_stem>_edges.csv` (per-player average position/pass counts, and aggregated pairwise pass counts — the same data used to render the PNG)
+Every pipeline that renders a video/image also writes structured data next to it, at an auto-derived path:
+- `write_tracking_video`, `write_team_shape_video`, `write_voronoi_2d_video`, `write_ball_path_2d_video` -> `<output_stem>_metrics.csv` (one row per frame, stdlib `csv`, no pandas required to write)
+- `write_team_heatmaps_video` -> `<output_stem>_heatmaps.npz` (cumulative per-team grids + pitch geo-reference metadata)
+- `write_team_player_heatmap_grids` -> `player_heatmaps.npz` + `player_heatmaps_manifest.csv` in `output_dir` (per-player grids for the top players shown in the PNGs)
+- `write_possession_2d_video` -> additionally writes `<output_stem>_events.csv` (one row per confirmed pass/turnover: `frame, time_s, type, from_tid, from_team, to_tid, to_team`)
+- `write_pass_network` -> `<output_stem>_nodes.csv` + `<output_stem>_edges.csv` (per-player average position/pass counts, and aggregated pairwise pass counts, the same data used to render the PNG)
 
 ### Pass network & possession events
 `write_possession_2d_video` now classifies each change of ball possession as a **pass**
 (same team) or a **turnover**/interception (different team), using a small debounce
-(`PossessionTracker` in `utils.py`) so one noisy frame can't flip who "has" the ball —
-a new holder must be the nearest tracked player for a few consecutive frames before a
-possession-change event is confirmed.
+(`PossessionTracker` in `utils.py`) so one noisy frame can't flip who "has" the ball.
+A new holder must be the nearest tracked player for a few consecutive frames before a
+possession change event is confirmed.
 
 `write_pass_network` runs its own detect/track/classify pass over a clip and renders a
 static pass network: one PNG with a node per player (colored by team, sized by pass
@@ -97,7 +97,7 @@ write_pass_network("media/121364_0.mp4", "outputs/pass_network.png")
 
 
 # Models & Training
-Both detection models were self-trained (not off-the-shelf) and are versioned in this repo under [`models/`](models/), including the raw training scripts and validation results. Weights auto-download from [Hugging Face](https://huggingface.co/granthohol/soccer-cv-weights/tree/main) on first use, so none of this is required to *use* the library — it's here for anyone who wants to see how the models were built or retrain on their own data.
+Both detection models were self-trained (not off the shelf) and are versioned in this repo under [`models/`](models/), including the raw training scripts and validation results. Weights auto-download from [Hugging Face](https://huggingface.co/granthohol/soccer-cv-weights/tree/main) on first use, so none of this is required to use the library, it's here for anyone who wants to see how the models were built or retrain on their own data.
 
 ### Object detection — players, goalkeepers, referees, ball
 - Base model: `yolov8s.pt`, fine-tuned for 100 epochs at 1280px (Adam, lr0=1e-3) on a Roboflow football-players-detection dataset.
@@ -114,7 +114,7 @@ Both detection models were self-trained (not off-the-shelf) and are versioned in
 
 ### Pitch keypoint detection
 - Base model: `yolov8x-pose.pt` (keypoint task), fine-tuned for 100 epochs on a Roboflow football-field-detection dataset.
-- Detects pitch line-intersection keypoints, which drive the frame → canonical-2D-pitch homography used by every pipeline.
+- Detects pitch line-intersection keypoints, which drive the frame -> canonical-2D-pitch homography used by every pipeline.
 - Training script: [`models/pitch_detection/train_pitch_detection.py`](models/pitch_detection/train_pitch_detection.py)
 
 <table>
