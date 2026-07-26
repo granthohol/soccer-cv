@@ -48,6 +48,7 @@ Analyst-style visuals and data extraction from ordinary footage. Can be used at 
 - Tracking ball path over time
 - Extracting player kinetic data over time such as position, speed, acceleration, etc.
 - Pass/turnover detection and a static pass-network visualization (who passed to whom, how often)
+- A `soccer-cv` command-line tool, so any pipeline can be run without writing Python
 
 Formats functionality as extensible pipelines. Each function can be imported and run with no needed input besides a video. 
 
@@ -158,6 +159,18 @@ pip install "soccer-cv[mps]"
 On first use, models auto-download from Hugging Face
 - Cached under your HF cache (e.g. `~/.cache/huggingface`).
 - If you prefer manual download, place the `.pt` files where the enviornment's HF cache can see them.
+
+### 4. Command line
+Every pipeline is also available as a `soccer-cv` subcommand — no Python required.
+
+```bash
+soccer-cv --help
+soccer-cv team-shape media/121364_0.mp4 team_shape_121364_0.mp4
+soccer-cv pass-network media/121364_0.mp4 outputs/pass_network.png
+soccer-cv summarize tests/output/tracking_121364_0_metrics.csv
+```
+
+Run `soccer-cv <command> --help` for a subcommand's full list of options.
 
 
 # Limitations
