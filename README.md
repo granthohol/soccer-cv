@@ -1,4 +1,10 @@
 # soccer-cv
+
+[![PyPI version](https://img.shields.io/pypi/v/soccer-cv.svg)](https://pypi.org/project/soccer-cv/)
+[![Python versions](https://img.shields.io/pypi/pyversions/soccer-cv.svg)](https://pypi.org/project/soccer-cv/)
+[![License: MIT](https://img.shields.io/github/license/granthohol/soccer-cv.svg)](LICENSE)
+[![PyPI downloads](https://img.shields.io/pypi/dm/soccer-cv.svg)](https://pypi.org/project/soccer-cv/)
+
 ### A python library that converts raw video into rich soccer metrics and visuals, no external data required
 
 ##### 3D -> 2D with Team Shape
@@ -60,6 +66,35 @@ write_team_shape_video("media/121364_0.mp4", "team_shape_121364_0.mp4")
 6. Render the chosen visualization (Voronoi, heatmaps, shapes, tracking) and derive metrics (possession, speed/accel, control %, etc.).  
 
 
+# Models & Training
+Both detection models were self-trained (not off-the-shelf) and are versioned in this repo under [`models/`](models/), including the raw training scripts and validation results. Weights auto-download from [Hugging Face](https://huggingface.co/granthohol/soccer-cv-weights/tree/main) on first use, so none of this is required to *use* the library — it's here for anyone who wants to see how the models were built or retrain on their own data.
+
+### Object detection — players, goalkeepers, referees, ball
+- Base model: `yolov8s.pt`, fine-tuned for 100 epochs at 1280px (Adam, lr0=1e-3) on a Roboflow football-players-detection dataset.
+- 4 classes: `ball`, `goalkeeper`, `player`, `referee`.
+- Training script: [`models/object_detection/train_object_detector.py`](models/object_detection/train_object_detector.py)
+
+<table>
+<tr>
+<td><img src="models/object_detection/results/val_batch0_pred.jpg" width="100%"/><br/><sub>Validation predictions</sub></td>
+<td><img src="models/object_detection/results/PR_curve.png" width="100%"/><br/><sub>Precision-Recall curve</sub></td>
+<td><img src="models/object_detection/results/confusion_matrix_normalized.png" width="100%"/><br/><sub>Normalized confusion matrix</sub></td>
+</tr>
+</table>
+
+### Pitch keypoint detection
+- Base model: `yolov8x-pose.pt` (keypoint task), fine-tuned for 100 epochs on a Roboflow football-field-detection dataset.
+- Detects pitch line-intersection keypoints, which drive the frame → canonical-2D-pitch homography used by every pipeline.
+- Training script: [`models/pitch_detection/train_pitch_detection.py`](models/pitch_detection/train_pitch_detection.py)
+
+<table>
+<tr>
+<td><img src="models/pitch_detection/results/PosePR_curve.png" width="100%"/><br/><sub>Precision-Recall curve</sub></td>
+<td><img src="models/pitch_detection/results/confusion_matrix_normalized.png" width="100%"/><br/><sub>Normalized confusion matrix</sub></td>
+</tr>
+</table>
+
+
 # Installation
 
 ### 1. Requirements
@@ -94,5 +129,14 @@ pip install "soccer-cv[mps]"
 On first use, models auto-download from Hugging Face
 - Cached under your HF cache (e.g. `~/.cache/huggingface`).
 - If you prefer manual download, place the `.pt` files where the enviornment's HF cache can see them.
+
+
+# Limitations
+- **Single, fairly wide broadcast-style camera.** Homography estimation needs enough visible pitch line markings in frame; tight replays, handheld/sideline footage, or frequent camera cuts will degrade or break pitch keypoint detection and the 2D projection.
+- **Binary team classification.** The team classifier assumes two visually distinct outfield kit colors. It struggles when a goalkeeper's kit is close to an outfield team's color, kits are similar, or the ball/broadcast graphics occlude the crop it classifies from.
+- **Possession is a heuristic, not event data.** It's computed as nearest-player-to-ball distance in pitch space within a fixed radius — a good proxy for a possession bar, not a substitute for annotated touch/pass events.
+- **No cross-shot re-identification.** Track IDs (and therefore team assignment) reset on hard camera cuts, so pipelines are built around continuous single-shot clips rather than a full match broadcast.
+- **Trained on a modest public dataset.** Both YOLOv8 models (see [Models & Training](#models--training)) were fine-tuned on a few thousand annotated broadcast frames — expect accuracy to drop on unusual lighting, non-broadcast camera angles, or lower resolutions than they were trained on.
+- **CPU inference is slow.** Everything runs on CPU, but at ~1280px input a CUDA or Apple-Silicon (MPS) GPU is recommended for anything beyond short clips.
 
 

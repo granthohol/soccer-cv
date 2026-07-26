@@ -1,5 +1,11 @@
 # src/soccer_cv/__init__.py
+import os
 from importlib.metadata import PackageNotFoundError, version
+
+# Quiet down third-party logging (transformers/HF) before any heavy imports pull them in
+os.environ.setdefault("TRANSFORMERS_VERBOSITY", "error")
+os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 try:
     __version__ = version("soccer-cv")
@@ -9,7 +15,6 @@ except PackageNotFoundError:  # when running from source without install
 # Public API
 from .pipelines.ball_path import write_ball_path_2d_video
 from .pipelines.voronoi import write_voronoi_2d_video
-from .pipelines.ball_path import write_ball_path_2d_video
 from .pipelines.player_heatmaps import write_team_heatmaps_video, write_team_player_heatmap_grids
 from .pipelines.possession import write_possession_2d_video
 from .pipelines.team_shape import write_team_shape_video

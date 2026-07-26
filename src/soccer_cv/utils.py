@@ -36,7 +36,7 @@ def extract_crops(source_video_path: str):
     
     # iterate over sampled frames; tqdm just gives progress bar in terminal
     for frame in tqdm(frame_generator, desc="Collecting crops"):                    
-        result = OBJECT_DETECTION_MODEL.predict(frame, conf=0.3)[0]
+        result = OBJECT_DETECTION_MODEL.predict(frame, conf=0.3, verbose=False)[0]
         detections = sv.Detections.from_ultralytics(result)
         detections = detections.with_nms(threshold=0.5, class_agnostic=True)
         detections = detections[detections.class_id == PLAYER_ID]

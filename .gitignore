@@ -56,9 +56,6 @@ coverage.xml
 nosetests.xml
 coverage/
 .pytest_cache/
-tests/__pycache__/
-tests/
-.pytest_cache/
 .coverage.*
 
 # Translations
@@ -127,8 +124,8 @@ ehthumbs.db
 weights/
 *.csv
 *.jsonl
-tests/
 content/
+tests/output/
 
 pypi_api_token.txt
 pypi_codes.txt
