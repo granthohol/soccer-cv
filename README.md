@@ -60,6 +60,12 @@ from soccer_cv.pipelines.team_shape import write_team_shape_video
 write_team_shape_video("media/121364_0.mp4", "team_shape_121364_0.mp4")
 ```
 
+### Structured data exports
+Every pipeline that renders a video/image also writes structured data next to it, at an auto-derived path — no extra parameters needed:
+- `write_tracking_video`, `write_team_shape_video`, `write_voronoi_2d_video`, `write_ball_path_2d_video` → `<output_stem>_metrics.csv` (one row per frame, stdlib `csv`, no pandas required to write)
+- `write_team_heatmaps_video` → `<output_stem>_heatmaps.npz` (cumulative per-team grids + pitch geo-reference metadata)
+- `write_team_player_heatmap_grids` → `player_heatmaps.npz` + `player_heatmaps_manifest.csv` in `output_dir` (per-player grids for the top players shown in the PNGs)
+
 ### How it works (brief)
 1. Detect players, refs, ball, and pitch keypoints in each frame with self-trained YOLOv8 models (weights: https://huggingface.co/granthohol/soccer-cv-weights/tree/main
 2. Track players/refs with ByteTrack to get persistent `track_ids`; smooth each ID’s trajectory with a constant-velocity Kalman filter (distance-gated) to stabilize positions/velocities/accelerations in field units.

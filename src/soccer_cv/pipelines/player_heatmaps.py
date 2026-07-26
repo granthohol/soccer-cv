@@ -31,6 +31,12 @@ from .common import (
 )
 
 GRID_W, GRID_H     = 200, 130   # heat grid resolution (columns x rows)
+# Real-world pitch dimensions, used only as export metadata so grid cells are
+# interpretable in meters downstream (not used in any rendering). Mirrors the
+# real-pitch assumption tracking.py already uses; note this differs slightly from
+# this file's own canonical template extent (120m x 70m, from CONFIG.vertices).
+PITCH_LENGTH_M     = 105.0
+PITCH_WIDTH_M      = 68.0
 BLUR_SIGMA         = 5.0        # Gaussian sigma for heat smoothing (in grid pixels)
 HEAT_ALPHA         = 0.65       # max alpha to blend heat onto the pitch
 KEYPOINT_EVERY     = 5          # refresh homography every K frames
@@ -241,8 +247,25 @@ def write_team_heatmaps_video(source_video: str, target_video: str) -> None:
             # 5) Write split frame
             split = _concat_horiz(left_panel, right_panel)
             sink.write_frame(split)
-            
-            
+
+    # Structured data export: final cumulative grids + geo-reference metadata,
+    # auto-derived path next to target_video.
+    heatmaps_path = os.path.splitext(target_video)[0] + "_heatmaps.npz"
+    np.savez(
+        heatmaps_path,
+        heat0=heat0,
+        heat1=heat1,
+        frames_seen=frames_seen,
+        grid_h=GRID_H,
+        grid_w=GRID_W,
+        x_min=X_MIN,
+        x_max=X_MAX,
+        y_min=Y_MIN,
+        y_max=Y_MAX,
+        pitch_length_m=PITCH_LENGTH_M,
+        pitch_width_m=PITCH_WIDTH_M,
+    )
+
 
 # ---- HEATMAP BY PLAYER ---
 
@@ -478,5 +501,46 @@ def write_team_player_heatmap_grids(
     path1 = os.path.join(output_dir, "team1_heatmaps_grid.png")
     cv2.imwrite(path0, grid0)
     cv2.imwrite(path1, grid1)
+
+    # Structured data export: one grid array per exported (top-K, already-filtered)
+    # player, keyed to match the manifest below, plus geo-reference metadata. Only
+    # the players actually rendered in the two PNGs are exported (top0/top1), so the
+    # data stays 1:1 with what's visually shown.
+    import csv
+
+    arrays: dict = {
+        "grid_h": GRID_H,
+        "grid_w": GRID_W,
+        "x_min": X_MIN,
+        "x_max": X_MAX,
+        "y_min": Y_MIN,
+        "y_max": Y_MAX,
+        "pitch_length_m": PITCH_LENGTH_M,
+        "pitch_width_m": PITCH_WIDTH_M,
+    }
+    manifest_rows = []
+    for team_id, heats, pres, tids in ((0, heats0, pres0, top0), (1, heats1, pres1, top1)):
+        for rank, tid in enumerate(tids):
+            array_key = f"team{team_id}_tid{tid}"
+            arrays[array_key] = heats[tid]
+            manifest_rows.append({
+                "track_id": tid,
+                "team_id": team_id,
+                "rank": rank,
+                "presence_frames": pres.get(tid, 0),
+                "total_heat": float(heats[tid].sum()),
+                "array_key": array_key,
+            })
+
+    npz_path = os.path.join(output_dir, "player_heatmaps.npz")
+    np.savez(npz_path, **arrays)
+
+    manifest_path = os.path.join(output_dir, "player_heatmaps_manifest.csv")
+    with open(manifest_path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=[
+            "track_id", "team_id", "rank", "presence_frames", "total_heat", "array_key",
+        ])
+        writer.writeheader()
+        writer.writerows(manifest_rows)
 
     return path0, path1

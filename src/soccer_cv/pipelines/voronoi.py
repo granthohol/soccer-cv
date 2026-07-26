@@ -170,6 +170,8 @@ def write_voronoi_2d_video(source_video: str, target_video: str) -> None:
     """
     rt = init_runtime(source_video, want_team_classifier=True)
     frames = sv.get_video_frames_generator(source_video)
+    fps = max(1.0, float(rt.src_info.fps or 30.0))
+    metrics_rows: list[dict] = []
 
     # Cross-fade state for polygons
     prev_layer: np.ndarray | None = None
@@ -251,6 +253,14 @@ def write_voronoi_2d_video(source_video: str, target_video: str) -> None:
                     pct_now = ((1.0 - a) * prev_pct[0] + a * curr_pct[0],
                                (1.0 - a) * prev_pct[1] + a * curr_pct[1])
 
+            metrics_rows.append({
+                "frame": i,
+                "time_s": i / fps,
+                "is_keyframe": int(is_keyframe),
+                "team0_pct": pct_now[0],
+                "team1_pct": pct_now[1],
+            })
+
             # 5) Compose: pitch + blended Voronoi polygons (masked)
             canvas = rt.template.copy()
             if active_mask.any():
@@ -293,3 +303,13 @@ def write_voronoi_2d_video(source_video: str, target_video: str) -> None:
 
             # 8) Output frame
             sink.write_frame(canvas)
+
+    # Structured data export: one row per frame, auto-derived path next to target_video
+    import csv
+    metrics_path = os.path.splitext(target_video)[0] + "_metrics.csv"
+    with open(metrics_path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=list(metrics_rows[0].keys()) if metrics_rows else [
+            "frame", "time_s", "is_keyframe", "team0_pct", "team1_pct",
+        ])
+        writer.writeheader()
+        writer.writerows(metrics_rows)

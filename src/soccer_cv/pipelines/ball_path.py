@@ -1,5 +1,6 @@
 # src/soccer_cv/pipelines/path2d.py
 from __future__ import annotations
+import os
 from typing import Union, List
 from tqdm import tqdm
 import numpy as np
@@ -113,3 +114,30 @@ def write_ball_path_2d_video(
                 canvas = draw_paths_on_pitch(CONFIG, [trail], color=sv.Color.WHITE, pitch=canvas)
 
             sink.write_frame(canvas)
+
+    # Structured data export: one row per frame, auto-derived path next to target_video.
+    # _replace_outliers is a strictly causal single pass (each point's outlier decision
+    # only depends on earlier points), so one call over the full history reproduces
+    # exactly what was drawn into `trail` on every frame of the loop above.
+    import csv
+    cleaned = _replace_outliers(path_points, thr=DIST_THRESHOLD_PX)
+    fps = max(1.0, float(rt.src_info.fps or 30.0))
+    metrics_path = os.path.splitext(target_video)[0] + "_metrics.csv"
+    with open(metrics_path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=[
+            "frame", "time_s", "detected", "x_raw_m", "y_raw_m", "is_outlier", "x_clean_m", "y_clean_m",
+        ])
+        writer.writeheader()
+        for i, (raw, clean) in enumerate(zip(path_points, cleaned)):
+            detected = raw.size == 2
+            is_outlier = detected and clean.size == 0
+            writer.writerow({
+                "frame": i,
+                "time_s": i / fps,
+                "detected": int(detected),
+                "x_raw_m": (raw[0] / 100.0) if detected else "",
+                "y_raw_m": (raw[1] / 100.0) if detected else "",
+                "is_outlier": int(is_outlier),
+                "x_clean_m": (clean[0] / 100.0) if clean.size == 2 else "",
+                "y_clean_m": (clean[1] / 100.0) if clean.size == 2 else "",
+            })

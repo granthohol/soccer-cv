@@ -2,6 +2,12 @@ import pytest
 from soccer_cv.pipelines.voronoi import write_voronoi_2d_video
 import os
 
+# Skip cleanly if the sample clip isn't present
+clip_path = "content/0bfacc_0.mp4"
+skip_msg = f"Sample video not found: {clip_path}"
+skip = not os.path.exists(clip_path)
+
+@pytest.mark.skipif(skip, reason=skip_msg)
 @pytest.mark.parametrize("input_path, output_path", [
     ("content/0bfacc_0.mp4", "tests/output/voronoi_0bfacc_0.mp4"),
 ])
@@ -14,3 +20,7 @@ def test_write_voronoi_2d_video(input_path, output_path):
 
     # simple assertion: output file should exist
     assert os.path.exists(output_path)
+
+    # metrics path is auto-derived: <output_stem>_metrics.csv
+    metrics_path = os.path.splitext(output_path)[0] + "_metrics.csv"
+    assert os.path.exists(metrics_path) and os.path.getsize(metrics_path) > 0

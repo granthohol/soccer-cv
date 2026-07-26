@@ -290,6 +290,8 @@ def write_team_shape_video(
         rt.team_id_map = {}
 
     frames = sv.get_video_frames_generator(source_video)
+    fps = max(1.0, float(rt.src_info.fps or 30.0))
+    metrics_rows: list[dict] = []
 
     # Cross-fade state
     prev_rgb, prev_a = None, None      # previous keyframe's RGB (HxWx3 uint8) and ALPHA (HxW float32 0..1)
@@ -390,6 +392,21 @@ def write_team_shape_video(
                                 _lerp(pm1.centroid[1], cm1.centroid[1], t))
                     )
 
+            metrics_rows.append({
+                "frame": i,
+                "time_s": i / fps,
+                "is_keyframe": int(is_keyframe),
+                "team0_area_m2": m0.area,
+                "team0_width_m": m0.width,
+                "team0_depth_m": m0.depth,
+                "team0_centroid_x_m": m0.centroid[0] / 100.0,
+                "team0_centroid_y_m": m0.centroid[1] / 100.0,
+                "team1_area_m2": m1.area,
+                "team1_width_m": m1.width,
+                "team1_depth_m": m1.depth,
+                "team1_centroid_x_m": m1.centroid[0] / 100.0,
+                "team1_centroid_y_m": m1.centroid[1] / 100.0,
+            })
 
             # 4) Compose onto pitch using per-pixel alpha
             canvas = rt.template.copy().astype(np.float32)
@@ -438,3 +455,15 @@ def write_team_shape_video(
 
             # 7) Write frame
             sink.write_frame(canvas)
+
+    # Structured data export: one row per frame, auto-derived path next to target_video
+    import csv
+    metrics_path = os.path.splitext(target_video)[0] + "_metrics.csv"
+    with open(metrics_path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=list(metrics_rows[0].keys()) if metrics_rows else [
+            "frame", "time_s", "is_keyframe",
+            "team0_area_m2", "team0_width_m", "team0_depth_m", "team0_centroid_x_m", "team0_centroid_y_m",
+            "team1_area_m2", "team1_width_m", "team1_depth_m", "team1_centroid_x_m", "team1_centroid_y_m",
+        ])
+        writer.writeheader()
+        writer.writerows(metrics_rows)
