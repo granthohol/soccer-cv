@@ -121,3 +121,69 @@ def nearest_to_ball(
         team = t if t in (0, 1) else None
 
     return NearestResult(idx=j, tid=tid, team=team, dist=float(np.sqrt(d2[j])))
+
+
+@dataclass(frozen=True)
+class PossessionEvent:
+    """A confirmed change of ball possession from one tracked player to another."""
+    frame_idx: int
+    type: str                    # "pass" (same team) or "turnover" (different team)
+    from_tid: int
+    from_team: Optional[int]
+    to_tid: int
+    to_team: Optional[int]
+
+
+class PossessionTracker:
+    """
+    Debounced possession-holder tracker.
+
+    Feed it the raw per-frame nearest-player-to-ball result (tid=None when there's
+    no valid match this frame). A candidate new holder must be the nearest match
+    for `confirm_frames` consecutive *matched* frames before it's accepted as the
+    new holder — this filters single-frame detection jitter that would otherwise
+    look like a pass every time the nearest-player estimate flickers. No-match
+    frames are inert: they neither reset the current holder nor a pending
+    candidate streak, so a brief dropout mid-pass (ball airborne, undetected)
+    doesn't erase progress toward confirming the next holder.
+    """
+
+    def __init__(self, confirm_frames: int = 3):
+        self.confirm_frames = confirm_frames
+        self._holder_tid: Optional[int] = None
+        self._holder_team: Optional[int] = None
+        self._candidate_tid: Optional[int] = None
+        self._candidate_team: Optional[int] = None
+        self._candidate_streak: int = 0
+
+    def update(self, frame_idx: int, tid: Optional[int], team: Optional[int]) -> Optional[PossessionEvent]:
+        if tid is None:
+            return None  # no match this frame; don't touch holder or candidate state
+
+        if tid == self._holder_tid:
+            self._candidate_tid = None
+            self._candidate_streak = 0
+            return None
+
+        if tid == self._candidate_tid:
+            self._candidate_streak += 1
+        else:
+            self._candidate_tid, self._candidate_team, self._candidate_streak = tid, team, 1
+
+        if self._candidate_streak < self.confirm_frames:
+            return None
+
+        prev_tid, prev_team = self._holder_tid, self._holder_team
+        self._holder_tid, self._holder_team = self._candidate_tid, self._candidate_team
+        self._candidate_tid, self._candidate_streak = None, 0
+
+        if prev_tid is None:
+            return None  # first-ever holder assignment: initialization, not a pass/turnover
+
+        same_team = prev_team is not None and self._holder_team is not None and prev_team == self._holder_team
+        return PossessionEvent(
+            frame_idx=frame_idx,
+            type="pass" if same_team else "turnover",
+            from_tid=prev_tid, from_team=prev_team,
+            to_tid=self._holder_tid, to_team=self._holder_team,
+        )

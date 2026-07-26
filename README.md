@@ -47,6 +47,7 @@ Analyst-style visuals and data extraction from ordinary footage. Can be used at 
 - Player and team heatmaps
 - Tracking ball path over time
 - Extracting player kinetic data over time such as position, speed, acceleration, etc.
+- Pass/turnover detection and a static pass-network visualization (who passed to whom, how often)
 
 Formats functionality as extensible pipelines. Each function can be imported and run with no needed input besides a video. 
 
@@ -65,6 +66,25 @@ Every pipeline that renders a video/image also writes structured data next to it
 - `write_tracking_video`, `write_team_shape_video`, `write_voronoi_2d_video`, `write_ball_path_2d_video` → `<output_stem>_metrics.csv` (one row per frame, stdlib `csv`, no pandas required to write)
 - `write_team_heatmaps_video` → `<output_stem>_heatmaps.npz` (cumulative per-team grids + pitch geo-reference metadata)
 - `write_team_player_heatmap_grids` → `player_heatmaps.npz` + `player_heatmaps_manifest.csv` in `output_dir` (per-player grids for the top players shown in the PNGs)
+- `write_possession_2d_video` → additionally writes `<output_stem>_events.csv` (one row per **confirmed** pass/turnover: `frame, time_s, type, from_tid, from_team, to_tid, to_team`)
+- `write_pass_network` → `<output_stem>_nodes.csv` + `<output_stem>_edges.csv` (per-player average position/pass counts, and aggregated pairwise pass counts — the same data used to render the PNG)
+
+### Pass network & possession events
+`write_possession_2d_video` now classifies each change of ball possession as a **pass**
+(same team) or a **turnover**/interception (different team), using a small debounce
+(`PossessionTracker` in `utils.py`) so one noisy frame can't flip who "has" the ball —
+a new holder must be the nearest tracked player for a few consecutive frames before a
+possession-change event is confirmed.
+
+`write_pass_network` runs its own detect/track/classify pass over a clip and renders a
+static pass network: one PNG with a node per player (colored by team, sized by pass
+involvement, positioned at their average on-pitch location) and an edge between every
+pair of teammates who passed to each other, with thickness proportional to pass count.
+
+```python
+from soccer_cv.pipelines.passing import write_pass_network
+write_pass_network("media/121364_0.mp4", "outputs/pass_network.png")
+```
 
 ### How it works (brief)
 1. Detect players, refs, ball, and pitch keypoints in each frame with self-trained YOLOv8 models (weights: https://huggingface.co/granthohol/soccer-cv-weights/tree/main
@@ -143,7 +163,7 @@ On first use, models auto-download from Hugging Face
 # Limitations
 - **Single, fairly wide broadcast-style camera.** Homography estimation needs enough visible pitch line markings in frame; tight replays, handheld/sideline footage, or frequent camera cuts will degrade or break pitch keypoint detection and the 2D projection.
 - **Binary team classification.** The team classifier assumes two visually distinct outfield kit colors. It struggles when a goalkeeper's kit is close to an outfield team's color, kits are similar, or the ball/broadcast graphics occlude the crop it classifies from.
-- **Possession is a heuristic, not event data.** It's computed as nearest-player-to-ball distance in pitch space within a fixed radius — a good proxy for a possession bar, not a substitute for annotated touch/pass events.
+- **Possession is a heuristic, not event data.** It's computed as nearest-player-to-ball distance in pitch space within a fixed radius — a good proxy for a possession bar, not a substitute for annotated touch/pass events. Pass/turnover detection (`write_possession_2d_video`'s events export, `write_pass_network`) is built directly on this same heuristic — a debounce filters single-frame noise, but it's still proximity-based, not ball-touch event data.
 - **No cross-shot re-identification.** Track IDs (and therefore team assignment) reset on hard camera cuts, so pipelines are built around continuous single-shot clips rather than a full match broadcast.
 - **Trained on a modest public dataset.** Both YOLOv8 models (see [Models & Training](#models--training)) were fine-tuned on a few thousand annotated broadcast frames — expect accuracy to drop on unusual lighting, non-broadcast camera angles, or lower resolutions than they were trained on.
 - **CPU inference is slow.** Everything runs on CPU, but at ~1280px input a CUDA or Apple-Silicon (MPS) GPU is recommended for anything beyond short clips.

@@ -1,7 +1,8 @@
 # src/soccer_cv/pipelines/possession.py
 from __future__ import annotations
+import os
 from collections import deque
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -28,7 +29,7 @@ from .common import (
     update_homography,
     anchors_bottom_center, 
 )
-from ..utils import nearest_to_ball
+from ..utils import nearest_to_ball, PossessionEvent, PossessionTracker
 
 # Tunables
 KEYPOINT_EVERY   = 5          # refresh homography every K frames
@@ -37,6 +38,7 @@ SMOOTH_H         = 5          # homography smoothing window
 MIN_KP           = 4          # minimum keypoints required for a homography
 POS_RADIUS_PX    = 100.0       # max pitch distance ball->player to count possession
 ROLLING_SECONDS  = 3.0        # rolling-average window length (seconds)
+CONFIRM_FRAMES   = 3          # consecutive matched frames before a possession change is confirmed
 TEAM1_HEX        = '00BFFF'   # team 0 color (blue-ish)
 TEAM2_HEX        = 'FF1493'   # team 1 color (pink)
 
@@ -142,7 +144,10 @@ def write_possession_2d_video(source_video: str, target_video: str) -> Tuple[flo
     last_possesor: Optional[int] = None
     
     template = draw_pitch(CONFIG)
-    
+
+    poss_tracker = PossessionTracker(confirm_frames=CONFIRM_FRAMES)
+    possession_events: List[PossessionEvent] = []
+
     with sv.VideoSink(target_video, video_info=rt.pitch_info) as sink:
         for i, frame in enumerate(tqdm(frames, total=rt.src_info.total_frames)):
             
@@ -161,7 +166,17 @@ def write_possession_2d_video(source_video: str, target_video: str) -> Tuple[flo
             else:
                 pitch_ball = np.empty((0, 2), np.float32)
                 pitch_play = np.empty((0, 2), np.float32)
-                
+
+            # player-level possession tracking (pass/turnover detection)
+            poss_id_res = nearest_to_ball(
+                pitch_ball, pitch_play, team_ids=team_ids,
+                tracker_ids=getattr(players, "tracker_id", None),
+                radius_px=POS_RADIUS_PX,
+            )
+            event = poss_tracker.update(i, poss_id_res.tid, poss_id_res.team)
+            if event is not None:
+                possession_events.append(event)
+
             # frame possession decision (raw)
             raw_possession = _nearest_possessor(pitch_ball, pitch_play, team_ids, radius_px=POS_RADIUS_PX)
             if raw_possession in (0, 1):
@@ -224,7 +239,26 @@ def write_possession_2d_video(source_video: str, target_video: str) -> Tuple[flo
         print(
             f"[soccer-cv] Final possession — "
             f"Team 0: {final0:.1f}% | Team 1: {final1:.1f}% | "
-            f"Unknown frames (pre-first-possession): {rt.src_info.total_frames - total_known}"            
+            f"Unknown frames (pre-first-possession): {rt.src_info.total_frames - total_known}"
         )
-        
+
+        # Structured data export: one row per confirmed pass/turnover, auto-derived path
+        import csv
+        events_path = os.path.splitext(target_video)[0] + "_events.csv"
+        with open(events_path, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=[
+                "frame", "time_s", "type", "from_tid", "from_team", "to_tid", "to_team",
+            ])
+            writer.writeheader()
+            for ev in possession_events:
+                writer.writerow({
+                    "frame": ev.frame_idx,
+                    "time_s": round(ev.frame_idx / fps, 3),
+                    "type": ev.type,
+                    "from_tid": ev.from_tid,
+                    "from_team": ev.from_team,
+                    "to_tid": ev.to_tid,
+                    "to_team": ev.to_team,
+                })
+
         return (total_team0 / total_known, total_team1 / total_known) if total_known else (0.5, 0.5)
